@@ -132,10 +132,33 @@ with c3:
     lap_type = st.radio("Lap", ["Fastest", "Specific #"], horizontal=True)
     lap_num = st.number_input("Lap #", 1, 100, 10) if lap_type == "Specific #" else None
 
-lap1 = session.laps.pick_driver(driver1).pick_fastest() if lap_num is None else session.laps.pick_driver(driver1).pick_lap(lap_num)
-lap2 = session.laps.pick_driver(driver2).pick_fastest() if lap_num is None else session.laps.pick_driver(driver2).pick_lap(lap_num)
-tel1 = lap1.get_telemetry().add_distance()
-tel2 = lap2.get_telemetry().add_distance()
+# Logic to pick the laps
+if lap_type == "Fastest":
+    lap1 = session.laps.pick_driver(driver1).pick_fastest()
+    lap2 = session.laps.pick_driver(driver2).pick_fastest()
+else:
+    # Validation: Check if the driver actually did this lap
+    laps_d1 = session.laps.pick_driver(driver1)
+    laps_d2 = session.laps.pick_driver(driver2)
+
+    # If user asks for Lap 50 but driver stopped at Lap 20, stop gracefully
+    if lap_num > laps_d1['LapNumber'].max():
+        st.warning(f"⚠️ {driver1} did not reach Lap {lap_num} (DNF or Lapped).")
+        st.stop()
+    if lap_num > laps_d2['LapNumber'].max():
+        st.warning(f"⚠️ {driver2} did not reach Lap {lap_num} (DNF or Lapped).")
+        st.stop()
+
+    lap1 = laps_d1.pick_lap(lap_num)
+    lap2 = laps_d2.pick_lap(lap_num)
+
+# Validation: Check for empty telemetry (Extra safety)
+try:
+    tel1 = lap1.get_telemetry().add_distance()
+    tel2 = lap2.get_telemetry().add_distance()
+except Exception as e:
+    st.warning(f"Could not retrieve telemetry for this comparison. One driver might have crashed or has no data.")
+    st.stop()
 
 team1 = get_team_info(lap1['Team'])
 team2 = get_team_info(lap2['Team'])
