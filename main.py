@@ -32,7 +32,8 @@ TEAM_COLORS = {
 def get_team_info(team):
     if hasattr(team, 'item'):
         team = team.item()
-    if pd.isna(team) or not team:
+    team_str = str(team).strip() if team is not None else ""
+    if not team_str or pd.isna(team_str):
         return {"color": "#CCCCCC", "logo": "⚪"}
     team_str = str(team).strip()
     return TEAM_COLORS.get(team_str, {"color": "#CCCCCC", "logo": "⚪"})
@@ -64,12 +65,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Header
-col1, col2 = st.columns([3, 1])
+col1, col2 = st.columns([1, 4])
 with col1:
+    st.image("https://www.formula1.com/etc/designs/fom-website/images/f1_logo.svg", width=120)
+with col2:
     st.markdown("# Formula 1 Telemetry & Strategy Hub")
     st.markdown("**fastf1 + ML-powered insights** — Compare drivers, predict pits, dominate the grid")
-with col2:
-    st.image("https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif", use_column_width=True)
 
 # Session Setup
 with st.expander("Session Setup", expanded=True):
@@ -104,9 +105,9 @@ lap2 = session.laps.pick_driver(driver2).pick_fastest() if lap_num is None else 
 tel1 = lap1.get_telemetry().add_distance()
 tel2 = lap2.get_telemetry().add_distance()
 
-team1 = get_team_info(lap1['Team'].item())
-team2 = get_team_info(lap2['Team'].item())
-diff_teams = lap1['Team'].item() != lap2['Team'].item()
+team1 = get_team_info(lap1['Team'])
+team2 = get_team_info(lap2['Team'])
+diff_teams = str(lap1['Team'].strip()) != str(lap2['Team'].strip())
 
 if diff_teams:
     delta = np.mean(tel1['Speed'] - tel2['Speed'])
