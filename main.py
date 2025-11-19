@@ -186,4 +186,4 @@ with col_f2:
     st.markdown("[⭐ GitHub Repo](https://github.com/amalabdirahman/f1-telemetry-dashboard) | [📹 Demo Video](https://www.youtube.com/watch?v=demo)")
 if st.button("📤 Share Dashboard"):
     st.code(f"https://formula1-telemetry-dashboard.streamlit.app")
-st.caption("© 2025 Amal Abdirahman | Fuelled by F1 obsession 🏁")
+st.caption("© 2025 Amal Abdirahman | Fuelled by F1 obsession 🏁 | [LinkedIn] (https://www.linkedin.com/in/amalabdirahman)")
