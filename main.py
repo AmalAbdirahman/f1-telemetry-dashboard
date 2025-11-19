@@ -165,7 +165,7 @@ with tab1:
         compound_colors = {
             'SOFT': '#FF0000',
             'MEDIUM': '#FFFF00',
-            'HARD': '#FFFFFF',
+            'HARD': '#A0A0A0',
             'INTERMEDIATE': '#00FF00',
             'WET': '#00FFFF'
         }
