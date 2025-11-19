@@ -94,12 +94,16 @@ with st.expander("Session Setup", expanded=True):
     with c2: gp = st.text_input("Grand Prix", "Monaco")
     with c3: session_type = st.radio("Session", ["R", "Q", "FP1", "FP2", "FP3", "S"], horizontal=True)
 
-    if st.button("Load Session", type="primary"):
-        with st.spinner("Loading telemetry..."):
+    if st.button("🚀 Load Session", type="primary"):
+    with st.spinner("🏎️ Fetching telemetry data..."):
+        try:
             session = fastf1.get_session(year, gp, session_type)
             session.load(telemetry=True, laps=True, weather=True)
             st.session_state.session = session
-            st.success("Session loaded!")
+            st.success(f"✅ Loaded: {session.name}")
+        except Exception as e:
+            st.error(f"❌ Load failed: {e}. Try 'Bahrain R' for quick test.")
+            st.stop()
 
 if "session" not in st.session_state:
     st.stop()
