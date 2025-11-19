@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
 import numpy as np
+import scipy
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
@@ -203,7 +204,7 @@ else:
     st.info("Sector times not available for this session")
 
 # Strategy Tabs
-tab1, tab2, tab3 = st.tabs(["Tyre Degradation", "Pit Predictor (ML)", "Strategy Forecast"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Tyre Degradation", "Pit Predictor (ML)", "Strategy Forecast", "Bayesian Pace Updater", "Pit Safety (Prob)"])
 
 with tab1:
     st.subheader("Tyre Degradation Analysis")
@@ -357,9 +358,6 @@ with tab2:
     else:
         st.warning("⚠️ Not enough data points in this session to train the AI model. Try loading a full Race session.")
 
-import numpy as np
-import plotly.graph_objects as go
-
 with tab3:
     st.subheader("Monte Carlo Catch Predictor")
     
@@ -477,6 +475,153 @@ with tab3:
         st.plotly_chart(fig, use_container_width=True)
         
         st.caption(f"Based on last 10 laps: {chaser} (σ={sigma_chaser:.2f}s), {leader} (σ={sigma_leader:.2f}s)")
+
+
+with tab4:
+    st.subheader("Bayesian Race Pace Inference")
+    st.markdown("""
+    > **The Stats Logic:**
+    > We start with a **Prior Belief** of a driver's pace based on FP2 (Long Runs).
+    > As the race progresses, we observe new data (**Likelihood**).
+    > We use a **Normal-Normal Conjugate Prior** update to calculate the **Posterior** (True Pace).
+    """)
+
+    # Driver Selection
+    b_driver = st.selectbox("Select Driver for Analysis", session.results['Abbreviation'].unique(), index=0)
+    
+    # 1. Get Prior Data (Simulated from FP2 or early race laps)
+    # In a real app, you'd load the 'FP2' session here. To save time, we'll simulate 
+    # the Prior using the first 5 laps of the race as "Initial Belief".
+    laps_driver = session.laps.pick_driver(b_driver).pick_quicklaps().pick_wo_box()
+    
+    if len(laps_driver) < 5:
+        st.warning("Not enough laps to perform Bayesian Inference.")
+    else:
+        # PRIOR: Based on first 3 clean laps (simulating 'Practice Data')
+        prior_data = laps_driver['LapTime'].dt.total_seconds().iloc[:3]
+        mu_0 = prior_data.mean()
+        sigma_0 = prior_data.std() if len(prior_data) > 1 else 0.5
+        
+        # LIKELIHOOD: The rest of the race
+        race_data = laps_driver['LapTime'].dt.total_seconds().iloc[3:]
+        if len(race_data) == 0:
+            st.info("Waiting for more race laps to update the model...")
+        else:
+            n = len(race_data)
+            mu_likelihood = race_data.mean()
+            sigma_likelihood = race_data.std() # Assumed known variance for simplicity
+            
+            # 2. Calculate Posterior (The Math)
+            # Formula for Normal-Normal Conjugate Prior
+            # Precision = 1/variance
+            tau_0 = 1 / (sigma_0 ** 2)
+            tau_likelihood = n / (sigma_likelihood ** 2)
+            tau_post = tau_0 + tau_likelihood
+            
+            sigma_post = np.sqrt(1 / tau_post)
+            mu_post = (tau_0 * mu_0 + tau_likelihood * mu_likelihood) / tau_post
+
+            # 3. Visualization (PDFs)
+            x_min = min(mu_0, mu_likelihood, mu_post) - 2
+            x_max = max(mu_0, mu_likelihood, mu_post) + 2
+            x = np.linspace(x_min, x_max, 1000)
+
+            # Generate Normal Curves
+            y_prior = stats.norm.pdf(x, mu_0, sigma_0)
+            y_like = stats.norm.pdf(x, mu_likelihood, sigma_likelihood)
+            y_post = stats.norm.pdf(x, mu_post, sigma_post)
+
+            fig = go.Figure()
+            
+            # Plot Prior
+            fig.add_trace(go.Scatter(x=x, y=y_prior, name='Prior (Initial Belief)', 
+                                     line=dict(color='gray', dash='dot')))
+            
+            # Plot Likelihood
+            fig.add_trace(go.Scatter(x=x, y=y_like, name=f'Likelihood (Last {n} Laps)', 
+                                     line=dict(color='blue', width=1), fill='tozeroy', fillcolor='rgba(0,0,255,0.1)'))
+            
+            # Plot Posterior
+            fig.add_trace(go.Scatter(x=x, y=y_post, name='Posterior (Updated Pace)', 
+                                     line=dict(color='red', width=4)))
+
+            fig.update_layout(
+                title=f"Bayesian Pace Update for {b_driver}",
+                xaxis_title="Lap Time (s)",
+                yaxis_title="Probability Density",
+                template="plotly_dark"
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            st.success(f"**True Pace Estimate:** {mu_post:.3f}s (Confidence: ±{sigma_post*1.96:.2f}s)")
+            st.caption("Notice how the Red curve (Posterior) is taller and narrower than the Grey curve? That visualises our Reduced Uncertainty.")
+
+with tab5:
+    st.subheader("Probabilistic Pit Exit Analysis")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        # User selects who they are racing against (e.g., the car behind)
+        rival = st.selectbox("Rival Driver (Traffic)", session.results['Abbreviation'].unique(), index=2)
+    with col2:
+        current_gap = st.number_input("Current Gap to Rival (s)", value=22.0)
+
+    # Pit Stop Parameters (The Uncertainty)
+    st.markdown("#### Pit Stop Parameters")
+    c1, c2 = st.columns(2)
+    with c1:
+        avg_pit_loss = st.slider("Avg Pit Loss Time (s)", 18.0, 25.0, 20.0)
+    with c2:
+        pit_variability = st.slider("Pit Stop Variability (σ)", 0.2, 2.0, 0.5)
+
+    # 1. Define Distributions
+    # Pit Loss ~ N(20s, 0.5s^2)
+    # Rival Pace ~ N(CurrentGap, RivalPaceVariance) - simplified for the "moment of impact"
+    
+    # We want to calculate P(Gap_After_Pit > 0)
+    # Gap_After_Pit = Current_Gap - Pit_Loss
+    # Since Pit_Loss is a random variable, Gap_After_Pit is also a random variable.
+    # Mean_New = Gap - Mean_Pit
+    # Std_New = Pit_Std (assuming Gap is fixed measurement for this instant)
+    
+    mean_gap_after = current_gap - avg_pit_loss
+    # Z-score for 0 (The "Clash" point)
+    # Z = (X - μ) / σ
+    # We want P(x > 0)
+    
+    z_score = (0 - mean_gap_after) / pit_variability
+    prob_safe = 1 - stats.norm.cdf(z_score) # Probability we are ABOVE 0
+    
+    #  Visualisation
+    x = np.linspace(mean_gap_after - 4, mean_gap_after + 4, 500)
+    y = stats.norm.pdf(x, mean_gap_after, pit_variability)
+    
+    fig = go.Figure()
+    
+    # Plot the Rejoin Distribution
+    fig.add_trace(go.Scatter(x=x, y=y, name='Rejoin Distribution', fill='tozeroy',
+                             fillcolor='rgba(0, 255, 0, 0.2)' if prob_safe > 0.5 else 'rgba(255, 0, 0, 0.2)',
+                             line=dict(color='white')))
+    
+    # Add the "Danger Zone" (Negative Gap = Behind Rival)
+    fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Traffic Line")
+    
+    fig.update_layout(
+        title=f"Probability of Rejoining Ahead of {rival}",
+        xaxis_title="Gap After Pit Stop (seconds)",
+        yaxis_title="Probability Density",
+        template="plotly_dark"
+    )
+    
+    st.metric("Probability of Safe Rejoin", f"{prob_safe*100:.1f}%", 
+              delta="Safe" if prob_safe > 0.9 else "Risky" if prob_safe > 0.5 else "Unsafe")
+    st.plotly_chart(fig, use_container_width=True)
+
+    if prob_safe < 0.5:
+        st.error(f"⚠️ UNDERCUT RISK: You will likely emerge {abs(mean_gap_after):.2f}s BEHIND {rival}.")
+    else:
+        st.success(f"✅ SAFE: Expected to emerge {mean_gap_after:.2f}s AHEAD of {rival}.")
 # ──────────────────────────────────────
 # Footer
 # ──────────────────────────────────────
