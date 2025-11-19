@@ -7,6 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 from plotly.subplots import make_subplots
+import os
 
 # ──────────────────────────────────────
 # App config
@@ -15,13 +16,17 @@ st.set_page_config(page_title="F1 Telemetry Dashboard", layout="wide")
 f1plot.setup_mpl(mpl_backend="Agg")
 
 # Cache (Colab + local will both use this folder)
-fastf1.Cache.enable_cache("fastf1_cache")
+cache_dir = "/tmp/fastf1_cache"
+os.makedirs(cache_dir, exist_ok=True)
+fastf1.Cache.enable.cache(cache_dir)
 
 # ──────────────────────────────────────
 # Title & sidebar
 # ──────────────────────────────────────
+plotting.setup_mpl(mpl_backend="Agg")
+st.set_page_config(page_title="F1 Telemetry Dashboard", layout = "wide")
 st.title("Formula 1 Telemetry & Strategy Dashboard")
-st.markdown("Real-time telemetry analysis using `fastf1` • Built with ❤️ by **you**")
+st.markdown("Real-time telemetry analysis using `fastf1`")
 
 st.sidebar.header("Race Selection")
 year = st.sidebar.selectbox("Year", options=list(range(2018, 2026)), index=6)          # 2024 default
