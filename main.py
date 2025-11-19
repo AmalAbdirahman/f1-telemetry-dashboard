@@ -180,7 +180,7 @@ else:
     st.info("Sector times not available for this session")
 
 # Strategy Tabs
-tab1, tab2 = st.tabs(["Tyre Degradation", "Pit Predictor (ML)"])
+tab1, tab2, tab3 = st.tabs(["Tyre Degradation", "Pit Predictor (ML)", "Strategy Forecast"])
 
 with tab1:
     st.subheader("Tyre Degradation Analysis")
@@ -334,6 +334,126 @@ with tab2:
     else:
         st.warning("⚠️ Not enough data points in this session to train the AI model. Try loading a full Race session.")
 
+import numpy as np
+import plotly.graph_objects as go
+
+with tab3:
+    st.subheader("Monte Carlo Catch Predictor")
+    
+    # ──────────────────────────────────────────────────────────────
+    # 1. Statistical Explanation (The "Why")
+    # ──────────────────────────────────────────────────────────────
+    st.markdown("""
+    > **ℹ️ Why use Monte Carlo Simulation?**
+    >
+    > A simple "Time to Catch" calculation assumes drivers run constant lap times (e.g., *Gap ÷ Delta*). 
+    > In reality, lap times are a **Stochastic Process** influenced by traffic, errors, and degradation.
+    >
+    > This tool models future lap times as random variables $L \sim \mathcal{N}(\mu, \sigma^2)$ and runs **1,000 race simulations** > to calculate the specific probability of an overtake.
+    """)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        chaser = st.selectbox("Chasing Driver", session.results['Abbreviation'].unique(), index=0)
+    with col2:
+        leader = st.selectbox("Leading Driver", session.results['Abbreviation'].unique(), index=1)
+
+    # ──────────────────────────────────────────────────────────────
+    # 2. Data Preparation
+    # ──────────────────────────────────────────────────────────────
+    # Get valid racing laps (exclude pit stops & SC)
+    laps_chaser = session.laps.pick_driver(chaser).pick_wo_box().pick_track_status('1').pick_quicklaps()
+    laps_leader = session.laps.pick_driver(leader).pick_wo_box().pick_track_status('1').pick_quicklaps()
+
+    if len(laps_chaser) < 5 or len(laps_leader) < 5:
+        st.error("Not enough data points to build a statistical distribution.")
+    else:
+        # Calculate Mean (μ) and Std Dev (σ) from recent history
+        # We take the last 10 laps to capture *current* form/fuel load
+        mu_chaser = laps_chaser['LapTime'].dt.total_seconds().iloc[-10:].mean()
+        sigma_chaser = laps_chaser['LapTime'].dt.total_seconds().iloc[-10:].std()
+
+        mu_leader = laps_leader['LapTime'].dt.total_seconds().iloc[-10:].mean()
+        sigma_leader = laps_leader['LapTime'].dt.total_seconds().iloc[-10:].std()
+
+        # Inputs for simulation
+        c1, c2 = st.columns(2)
+        with c1:
+            current_gap = st.number_input("Current Gap (seconds)", min_value=0.0, value=5.0, step=0.1)
+        with c2:
+            laps_remaining = st.slider("Laps Remaining", 5, 30, 15)
+
+        # ──────────────────────────────────────────────────────────────
+        # 3. The Monte Carlo Engine
+        # ──────────────────────────────────────────────────────────────
+        n_simulations = 1000
+        
+        # Generate random future lap times for both drivers
+        # Shape: (1000 simulations, laps_remaining)
+        future_chaser = np.random.normal(mu_chaser, sigma_chaser, (n_simulations, laps_remaining))
+        future_leader = np.random.normal(mu_leader, sigma_leader, (n_simulations, laps_remaining))
+
+        # Calculate cumulative time for both
+        cum_chaser = np.cumsum(future_chaser, axis=1)
+        cum_leader = np.cumsum(future_leader, axis=1) + current_gap # Leader starts ahead
+
+        # Calculate Gap Trajectory (Leader - Chaser)
+        # If Gap < 0, overtake happened
+        gap_trajectories = cum_leader - cum_chaser
+
+        # Calculate Probability
+        # Check if gap goes below 0 at any point in the remaining laps
+        overtake_matrix = gap_trajectories < 0
+        prob_overtake = np.mean(np.any(overtake_matrix, axis=1)) * 100
+
+        # ──────────────────────────────────────────────────────────────
+        # 4. Visualization (Fan Chart / Cone of Uncertainty)
+        # ──────────────────────────────────────────────────────────────
+        
+        # Calculate percentiles for the "Cone"
+        median_gap = np.median(gap_trajectories, axis=0)
+        p95_gap = np.percentile(gap_trajectories, 95, axis=0)
+        p05_gap = np.percentile(gap_trajectories, 5, axis=0)
+        x_axis = list(range(1, laps_remaining + 1))
+
+        st.metric("Probability of Overtake", f"{prob_overtake:.1f}%", 
+                  delta="Likely" if prob_overtake > 50 else "Unlikely")
+
+        fig = go.Figure()
+
+        # 95% Confidence Interval (The "Cone")
+        fig.add_trace(go.Scatter(
+            x=x_axis + x_axis[::-1], # forward then backward for shape
+            y=list(p95_gap) + list(p05_gap)[::-1],
+            fill='toself',
+            fillcolor='rgba(0, 200, 255, 0.2)',
+            line=dict(color='rgba(255,255,255,0)'),
+            name='95% Confidence Interval',
+            showlegend=True
+        ))
+
+        # Median Trajectory
+        fig.add_trace(go.Scatter(
+            x=x_axis,
+            y=median_gap,
+            line=dict(color='#00D2BE', width=3),
+            name='Median Predicted Gap'
+        ))
+
+        # Zero line (The Overtake Point)
+        fig.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="Overtake")
+
+        fig.update_layout(
+            title=f"Predicted Gap: {chaser} vs {leader}",
+            xaxis_title="Laps into Future",
+            yaxis_title="Gap (seconds)",
+            template="plotly_dark",
+            hovermode="x unified"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+        
+        st.caption(f"Based on last 10 laps: {chaser} (σ={sigma_chaser:.2f}s), {leader} (σ={sigma_leader:.2f}s)")
 # ──────────────────────────────────────
 # Footer
 # ──────────────────────────────────────
