@@ -23,7 +23,7 @@ fastf1.Cache.enable_cache(cache_dir)
 # ──────────────────────────────────────
 # Title & sidebar
 # ──────────────────────────────────────
-plotting.setup_mpl(mpl_backend="Agg")
+
 st.set_page_config(page_title="F1 Telemetry Dashboard", layout = "wide")
 st.title("Formula 1 Telemetry & Strategy Dashboard")
 st.markdown("Real-time telemetry analysis using `fastf1`")
