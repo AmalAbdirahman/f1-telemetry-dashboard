@@ -230,6 +230,7 @@ with tab1:
         for drv in data['Driver'].unique():
             for comp in data['Compound'].unique():
                 subset = data[(data['Driver'] == drv) & (data['Compound'] == comp)]
+                subset = subset[subset['IsAccurate'] == True]
                 if len(subset) > 3:
                     coeffs = np.polyfit(subset['TyreLife'], subset['LapTimeSec'], 1)
                     line = np.poly1d(coeffs)(subset['TyreLife'])
