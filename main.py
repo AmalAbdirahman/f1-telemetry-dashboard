@@ -80,15 +80,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Header 
-col_logo, col_title = st.columns([1, 5])
-with col_logo:
-    st.markdown("""
-    <svg width="100" height="80" viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="80" rx="10" fill="#dc0000"/>
-      <text x="50" y="50" font-family="Arial" font-size="16" fill="white" text-anchor="middle" dominant-baseline="middle">F1</text>
-    </svg>
-    """, unsafe_allow_html=True)
-with col_title:
+col1, col2 = st.columns([1, 4])
+with col1:
+    st.image("https://www.formula1.com/etc/designs/fom-website/images/f1_logo.svg", width=120)
+with col2:
     st.markdown("# 🏁 **Formula 1 Telemetry & Strategy Hub**")
     st.markdown("**Powered by fastf1 + ML Insights** | *Analyse laps, predict pits, dominate the grid*")
 
