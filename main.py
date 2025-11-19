@@ -76,6 +76,14 @@ st.markdown("""
 .stCaption, .stMarkdown p {
     color: #d1d5db !important;  
 }
+.stRadio > div[role="radiogroup"] > label,
+.stRadio > div > label,
+.css-1cpxqw2,
+div[data-testid="stWidgetLabel"] > div > div,
+div[data-baseweb="radio"] > div > div {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
