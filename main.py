@@ -26,10 +26,20 @@ TEAM_COLORS = {
 }
 
 def get_color(team):
-    if pd.isna(team):
-        return "#CCCCCC"
+    """Safely extract team name from pandas Series or scalar and return color"""
+    # If it's a pandas Series (which happens with lap1['Team']), take the first value
+    if hasattr(team, 'iloc'):           # it's a Series
+        team = team.iloc[0] if len(team) > 0 else None
+    elif pd.isna(team):                 # it's NaN scalar
+        team = None
+    else:
+        team = str(team)                # normal string/number
+
+    if not team or str(team).strip() == "" or str(team).lower() == "nan":
+        return "#CCCCCC"                # fallback gray
+
     team_str = str(team).strip()
-    return TEAM_COLORS.get(team_str, "#CCCCCC")  # fallback grey
+    return TEAM_COLORS.get(team_str, "#CCCCCC")
 
 # ──────────────────────────────────────
 # Cache for Streamlit Cloud
