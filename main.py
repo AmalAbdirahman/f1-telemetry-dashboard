@@ -558,7 +558,34 @@ with tab4:
             st.caption("Notice how the Red curve (Posterior) is taller and narrower than the Grey curve? That visualises our Reduced Uncertainty.")
 
 with tab5:
-    st.subheader("Probabilistic Pit Exit Analysis")
+    st.markdown(r"""
+### 🛡️ Probabilistic Pit Exit Model (Traffic Avoidance)
+
+**The Strategic Context:**
+In Formula 1, the "Undercut" and "Overcut" rely on precise gap calculations. However, determinstic models fail when margins are tight. 
+* **Real-world Example:** In the 2025 Mexico GP, Oliver Bearman extended his stint to avoid pitting into a "DRS Train" led by Alonso. Even though fresh tyres were faster, rejoining *inside* traffic would have resulted in a net time loss due to dirty air.
+
+**The Statistical Model:**
+Instead of treating a Pit Stop as a fixed constant (e.g., $L = 20.0s$), we model the **Pit Loss Time** as a Stochastic Process following a Normal Distribution:
+$$
+L \sim \mathcal{N}(\mu_{pit}, \sigma^2_{total})
+$$
+
+**How we Calculate Variability ($\sigma_{total}$):**
+The total uncertainty is the sum of independent variances from three distinct phases:
+$$
+\sigma^2_{total} = \sigma^2_{entry} + \sigma^2_{stationary} + \sigma^2_{launch}
+$$
+1.  **$\sigma^2_{entry}$ (Driver Phase):** Variance in braking for the speed limit line (e.g., locking up vs. optimal deceleration).
+2.  **$\sigma^2_{stationary}$ (Mechanic Phase):** Variance in the wheel-gun operation (e.g., 2.2s vs. 3.5s stop).
+3.  **$\sigma^2_{launch}$ (Grip Phase):** Variance in traction on the pit exit with cold tyres.
+
+**The Output:**
+We calculate the **Probability of Safe Rejoin** ($P_{safe}$) by integrating the Probability Density Function (PDF) where the gap remains positive:
+$$
+P_{safe} = P(\text{Gap} - L > 0)
+$$
+""")
     
     col1, col2 = st.columns(2)
     with col1:
