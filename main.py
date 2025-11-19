@@ -159,16 +159,25 @@ fig.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Brake']*100, name=f"{driver
 
 st.plotly_chart(fig, use_container_width=True)
 st.subheader("Sector-by-Sector Time Delta")
-sectors = ['Sector1Time', 'Sector2Time', 'Sector3Time']
-delta_df = pd.DataFrame({
-    "Sector": ["S1", "S2", "S3"],
-    "Delta": [
-        (lap2.get_sector_times()[s] - lap1.get_sector_times()[s]).dt.total_seconds().iloc[0]
-        for s in sectors
-    ]
-})
-delta_df["Delta"] = delta_df["Delta"].round(3)
-st.dataframe(delta_df.style.format("{:+.3f}s").applymap(lambda x: f"color: {'lime' if x<0 else 'red'}"))
+
+# Use telemetry which always has sector times
+if 'Sector1Time' in tel1.columns and 'Sector2Time' in tel1.columns and 'Sector3Time' in tel1.columns:
+    s1 = (tel2['Sector1Time'].iloc[0] - tel1['Sector1Time'].iloc[0]).total_seconds()
+    s2 = (tel2['Sector2Time'].iloc[0] - tel1['Sector2Time'].iloc[0]).total_seconds()
+    s3 = (tel2['Sector3Time'].iloc[0] - tel1['Sector3Time'].iloc[0]).total_seconds()
+    
+    delta_df = pd.DataFrame({
+        "Sector": ["S1", "S2", "S3", "Total"],
+        "Delta (s)": [s1, s2, s3, s1+s2+s3]
+    }).round(3)
+
+    st.dataframe(
+        delta_df.style.format("{:+.3f}")
+        .applymap(lambda x: f"background-color: {'#004400' if x < 0 else '#440000'}", subset=["Delta (s)"])
+        .applymap(lambda x: "color: lime" if x < 0 else "color: red", subset=["Delta (s)"])
+    )
+else:
+    st.info("Sector times not available for this session")
 
 # Strategy Tabs
 tab1, tab2 = st.tabs(["Tyre Degradation", "Pit Predictor (ML)"])
