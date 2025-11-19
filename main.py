@@ -18,7 +18,7 @@ f1plot.setup_mpl(mpl_backend="Agg")
 # Cache (Colab + local will both use this folder)
 cache_dir = "/tmp/fastf1_cache"
 os.makedirs(cache_dir, exist_ok=True)
-fastf1.Cache.enable.cache(cache_dir)
+fastf1.Cache.enable_cache(cache_dir)
 
 # ──────────────────────────────────────
 # Title & sidebar
