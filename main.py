@@ -81,12 +81,12 @@ if "session" in st.session_state:
         fig.add_trace(go.Scatter(
             x=tel1['Distance'], y=tel1['Speed'],
             mode='lines', name=f"{driver1} – {lap1['Team']}",
-            line=dict(color=f1plot.get_team_color(lap1['Team']))
+            line=dict(color=f1plot.get_team_color(session, lap1['Team']))
         ))
         fig.add_trace(go.Scatter(
             x=tel2['Distance'], y=tel2['Speed'],
             mode='lines', name=f"{driver2} – {lap2['Team']}",
-            line=dict(color=f1plot.get_team_color(lap2['Team']))
+            line=dict(color=f1plot.get_team_color(session, lap2['Team']))
         ))
         fig.update_layout(height=500, xaxis_title="Distance (m)", yaxis_title="Speed (km/h)",
                           template="plotly_dark")
