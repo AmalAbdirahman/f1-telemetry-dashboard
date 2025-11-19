@@ -122,10 +122,10 @@ with col2:
     st.subheader("Throttle & Brake Application")
     fig2 = make_subplots(rows=2, cols=1, shared_xaxes=True,
                          subplot_titles=("Throttle (%)", "Brake (On/Off)"))
-    fig2.add_trace(go.Scatter(x=tel1['Distance'], y=tel1['Throttle'], name=f"{driver1} Throttle", line=dict(color=get_color(lap1['Team']))), row=1, col=1)
-    fig2.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Throttle'], name=f"{driver2} Throttle", line=dict(color=get_color(lap2['Team']))), row=1, col=1)
-    fig2.add_trace(go.Scatter(x=tel1['Distance'], y=tel1['Brake'], name=f"{driver1} Brake", line=dict(color=get_color(lap1['Team'])), row=2, col=1)
-    fig2.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Brake'], name=f"{driver2} Brake", line=dict(color=get_color(lap2['Team'])), row=2, col=1)
+    fig2.add_trace(go.Scatter(x=tel1['Distance'], y=tel1['Throttle'], name=f"{driver1} Throttle"), line=dict(color=get_color(lap1['Team']))), row=1, col=1)
+    fig2.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Throttle'], name=f"{driver2} Throttle"), line=dict(color=get_color(lap2['Team']))), row=1, col=1)
+    fig2.add_trace(go.Scatter(x=tel1['Distance'], y=tel1['Brake'], name=f"{driver1} Brake"), line=dict(color=get_color(lap1['Team'])), row=2, col=1)
+    fig2.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Brake'], name=f"{driver2} Brake"), line=dict(color=get_color(lap2['Team'])), row=2, col=1)
     fig2.update_layout(height=600)
     st.plotly_chart(fig2, use_container_width=True)
 
