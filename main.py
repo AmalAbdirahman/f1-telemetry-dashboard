@@ -268,38 +268,71 @@ with tab1:
         else:
             st.info("Not enough clean racing laps to calculate degradation.")
 with tab2:
+    st.subheader("Race Position Predictor (ML)")
+    st.markdown("""
+    **How it works:** This model uses `GradientBoosting` to look at **Tyre Age** vs **Track Position**.
+    It predicts where a driver will be in **3 laps time** based on current tyre life.
+    """)
+
     @st.cache_data
-    def train_model():
+    def train_model(session_name): # Added session_name to force refresh when race changes
+        # Prepare data: we need LapNumber, TyreLife, and Position
         df = session.laps[['LapNumber', 'TyreLife', 'Position']].dropna()
-        if len(df) < 20:
+        
+        # If not enough data (e.g., FP1), don't crash
+        if len(df) < 50:
             return None, None
+            
         X = df[['LapNumber', 'TyreLife']]
+        # Target: The position of the driver 3 laps into the future
         y = df['Position'].shift(-3).fillna(df['Position'].max())
+        
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        
         model = GradientBoostingRegressor(n_estimators=100, random_state=42)
         model.fit(X_train, y_train)
-        mae = mean_absolute_error(y_test, model.predict(X_test))   # ← real MAE
+        
+        mae = mean_absolute_error(y_test, model.predict(X_test))
         return model, mae
 
-    model, mae = train_model()
+    # Pass session.name so cache invalidates if you switch races
+    model, mae = train_model(session.name)
 
     if model:
-        st.metric("Backtest Accuracy (MAE)", f"{mae:.2f} positions", 
-                  delta="Excellent" if mae < 1.5 else "Good" if mae < 2.5 else "Fair")
+        st.metric("Model Accuracy (MAE)", f"±{mae:.1f} positions", 
+                  delta="High Accuracy" if mae < 2.0 else "Normal Accuracy",
+                  delta_color="inverse") # inverse makes low MAE (green) good
 
         col1, col2 = st.columns(2)
         with col1:
-            lap = st.slider("Current Lap", 1, 80, 25)
+            # Set default to current max lap to avoid confusion
+            max_lap = int(session.laps['LapNumber'].max())
+            lap = st.slider("Current Lap Number", 1, max_lap, min(20, max_lap))
         with col2:
-            life = st.slider("Tyre Life Left", 0, 60, 20)
+            life = st.slider("Current Tyre Age", 0, 50, 15)
 
-        if st.button("Predict Optimal Pit Lap", type="primary"):
-            pred = model.predict([[lap, life]])[0]
+        if st.button("🔮 Predict Future Position", type="primary"):
+            # Get prediction
+            pred_pos = model.predict([[lap, life]])[0]
+            
+            # Round it and ensure it's between P1 and P20
+            pred_pos = int(round(pred_pos))
+            pred_pos = max(1, min(20, pred_pos))
+
             st.balloons()
-            st.success(f"**Optimal pit lap → {int(pred):.0f}**")
-            st.caption(f"Expected finish: ~P{int(pred):.0f} (±{mae:.1f} positions)")
+            
+            #  Display it as "Position"
+            st.success(f"**Predicted Position in 3 Laps: P{pred_pos}**")
+            
+            # Add strategy context
+            if pred_pos <= 3:
+                st.markdown("🏆 **Podium Contention** - Pace is strong.")
+            elif pred_pos <= 10:
+                st.markdown("🔵 **Points Finish** - Good midfield pace.")
+            else:
+                st.markdown("🔻 **Outside Points** - Consider pitting for fresh rubber.")
     else:
-        st.info("Not enough laps in this session for ML prediction disabled")
+        st.warning("⚠️ Not enough data points in this session to train the AI model. Try loading a full Race session.")
 
 # ──────────────────────────────────────
 # Footer
