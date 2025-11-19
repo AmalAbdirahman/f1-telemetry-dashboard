@@ -32,7 +32,9 @@ TEAM_COLORS = {
 def get_team_info(team):
     if hasattr(team, 'item'):
         team = team.item()
-    team_str = str(team).strip() if team is not None else ""
+    elif hasattr(team, "values"):       
+        team = team.values[0]
+    team_str = str(team).strip()
     if not team_str or pd.isna(team_str):
         return {"color": "#CCCCCC", "logo": "⚪"}
     team_str = str(team).strip()
@@ -57,10 +59,22 @@ st.markdown("""
     .stMarkdown, .stText, .stCaption, .stSelectbox label, .stRadio label, .stNumberInput label, div[data-testid="stMetricValue"] {color: #e5e7eb !important;}
     .sidebar .sidebar-content {background: linear-gradient(#1a1a2e, #16213e); border-right: 2px solid #dc0000;}
     .stPlotlyChart {border-radius: 12px; border: 2px solid #dc0000; box-shadow: 0 4px 12px rgba(220,0,0,0.4);}
-    h1, h2, h3 {color: #dc0000 !important; text-shadow: 0 0 8px rgba(220,0,0,0.6);}
     .metric {background: linear-gradient(135deg, #dc0000, #ff4444); color: white !important; border-radius: 10px;}
     .stButton > button {background: linear-gradient(#dc0000, #ff4444); color: white !important; border-radius: 20px;}
     .stButton > button:hover {background: linear-gradient(#ff4444, #dc0000);}
+    h1, h2, h3, h4, h5, h6 {
+        color: #ffffff !important;
+        text-shadow: 0 0 10px rgba(255,255,255,0.3);
+    }
+    .stSelectbox > div > label,
+    .stRadio > div > label,
+    .stTextInput > div > label,
+    .stNumberInput > div > label,
+    div[data-testid="stWidgetLabel"] > div,
+    .stExpander > div > label {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -107,7 +121,7 @@ tel2 = lap2.get_telemetry().add_distance()
 
 team1 = get_team_info(lap1['Team'])
 team2 = get_team_info(lap2['Team'])
-diff_teams = str(lap1['Team'].strip()) != str(lap2['Team'].strip())
+diff_teams = team1["color"] != team2["color"]
 
 if diff_teams:
     delta = np.mean(tel1['Speed'] - tel2['Speed'])
