@@ -146,34 +146,112 @@ st.plotly_chart(fig, use_container_width=True)
 tab1, tab2 = st.tabs(["Tyre Degradation", "Pit Predictor (ML)"])
 
 with tab1:
-    if not session.laps[session.laps['TyreLife'] > 0].empty:
-        data = session.laps.pick_drivers([driver1, driver2])
-        fig_tyre = px.line(data, x="LapNumber", y="LapTime", color="Driver", facet_row="Compound")
-        fig_tyre.update_layout(template="plotly_dark", height=500)
-        st.plotly_chart(fig_tyre, use_container_width=True)
+    st.subheader("Tyre Degradation Analysis")
+
+    if session.laps[session.laps['TyreLife'] > 0].empty:
+        st.info("No tyre data available in this session")
     else:
-        st.info("No tyre data available")
+        # Grab data for the two selected drivers only
+        data = session.laps.pick_drivers([driver1, driver2]).copy()
+
+        # Convert LapTime to seconds (float)
+        data['LapTimeSec'] = data['LapTime'].dt.total_seconds()
+
+        # F1 official compound colours
+        compound_colors = {
+            'SOFT': '#FF0000',
+            'MEDIUM': '#FFFF00',
+            'HARD': '#FFFFFF',
+            'INTERMEDIATE': '#00FF00',
+            'WET': '#00FFFF'
+        }
+
+        fig = px.scatter(
+            data,
+            x='TyreLife',
+            y='LapTimeSec',
+            color='Compound',
+            facet_col='Driver',
+            size='LapNumber',
+            hover_data=['LapNumber', 'Stint'],
+            color_discrete_map=compound_colors,
+            title="Tyre Degradation – Lap Time vs Tyre Age"
+        )
+
+        # Beautiful styling
+        fig.update_traces(marker=dict(line=dict(width=1.5, color='white'), opacity=0.9))
+        fig.update_layout(
+            template="plotly_dark",
+            height=600,
+            legend_title="Compound",
+            xaxis_title="Tyre Age (laps)",
+            yaxis_title="Lap Time (seconds)",
+            hovermode="x unified"
+        )
+
+        # Add trend lines per compound/driver
+        for drv in data['Driver'].unique():
+            for comp in data['Compound'].unique():
+                subset = data[(data['Driver'] == drv) & (data['Compound'] == comp)]
+                if len(subset) > 3:
+                    coeffs = np.polyfit(subset['TyreLife'], subset['LapTimeSec'], 1)
+                    line = np.poly1d(coeffs)(subset['TyreLife'])
+                    fig.add_trace(go.Scatter(
+                        x=subset['TyreLife'], y=line,
+                        mode='lines',
+                        line=dict(dash='dot', color=compound_colors.get(comp, '#888')),
+                        name=f"{drv} {comp} trend",
+                        showlegend=False
+                    ))
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Bonus: show estimated cliff point
+        avg_degradation = data.groupby(['Driver', 'Compound'])['LapTimeSec'].apply(
+            lambda x: np.polyfit(data.loc[x.index, 'TyreLife'], x, 1)[0] * 10
+        ).round(2)
+
+        if not avg_degradation.empty:
+            st.markdown("**Estimated 1-second loss every 10 laps**")
+            st.dataframe(
+                avg_degradation.rename("sec/10 laps").reset_index(),
+                hide_index=True,
+                column_config={"sec/10 laps": st.column_config.NumberColumn(format="+%.2f s")}
+            )
 
 with tab2:
     @st.cache_data
     def train_model():
         df = session.laps[['LapNumber', 'TyreLife', 'Position']].dropna()
-        if len(df) < 20: return None
+        if len(df) < 20:
+            return None, None
         X = df[['LapNumber', 'TyreLife']]
         y = df['Position'].shift(-3).fillna(df['Position'].max())
-        model = GradientBoostingRegressor(n_estimators=100)
-        model.fit(X, y)
-        return model
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        model = GradientBoostingRegressor(n_estimators=100, random_state=42)
+        model.fit(X_train, y_train)
+        mae = mean_absolute_error(y_test, model.predict(X_test))   # ← real MAE
+        return model, mae
 
-    model = train_model()
+    model, mae = train_model()
+
     if model:
-        lap = st.slider("Current Lap", 1, 60, 25)
-        life = st.slider("Tyre Life Left", 0, 50, 20)
-        if st.button("Predict Optimal Pit Lap"):
+        st.metric("Backtest Accuracy (MAE)", f"{mae:.2f} positions", 
+                  delta="Excellent" if mae < 1.5 else "Good" if mae < 2.5 else "Fair")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            lap = st.slider("Current Lap", 1, 80, 25)
+        with col2:
+            life = st.slider("Tyre Life Left", 0, 60, 20)
+
+        if st.button("Predict Optimal Pit Lap", type="primary"):
             pred = model.predict([[lap, life]])[0]
-            st.success(f"Pit on lap {int(pred):.0f} for best result!")
+            st.balloons()
+            st.success(f"**Optimal pit lap → {int(pred):.0f}**")
+            st.caption(f"Expected finish: ~P{int(pred):.0f} (±{mae:.1f} positions)")
     else:
-        st.info("Not enough data for prediction")
+        st.info("Not enough laps in this session for ML prediction disabled")
 
 # ──────────────────────────────────────
 # Footer
@@ -183,7 +261,7 @@ col_f1, col_f2 = st.columns(2)
 with col_f1:
     st.markdown("**Tech Stack:** fastf1 • Plotly • XGBoost • Streamlit")
 with col_f2:
-    st.markdown("[⭐ GitHub Repo](https://github.com/amalabdirahman/f1-telemetry-dashboard) | [📹 Demo Video](https://www.youtube.com/watch?v=demo)")
+    st.markdown("[⭐ GitHub Repo](https://github.com/amalabdirahman/f1-telemetry-dashboard) ")
 if st.button("📤 Share Dashboard"):
     st.code(f"https://formula1-telemetry-dashboard.streamlit.app")
 st.caption("© 2025 Amal Abdirahman | Fuelled by F1 obsession 🏁 | [LinkedIn] (https://www.linkedin.com/in/amalabdirahman)")
