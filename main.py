@@ -109,6 +109,11 @@ with st.expander("Session Setup", expanded=True):
                 session.load(telemetry=True, laps=True, weather=True)
                 st.session_state.session = session
                 st.success(f"✅ Loaded: {session.name}")
+                st.markdown(
+                    f"<h1 style='text-align:center; color:#dc0000; text-shadow: 0 0 20px #ff0000;'>"
+                    f"{session.event.year} {session.event['EventName']} {session.name}</h1>",
+                    unsafe_allow_html=True
+                )
             except Exception as e:
                 st.error(f"❌ Load failed: {e}. Try 'Bahrain R' for quick test.")
                 st.stop()
@@ -153,6 +158,17 @@ fig.add_trace(go.Scatter(x=tel1['Distance'], y=tel1['Brake']*100, name=f"{driver
 fig.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Brake']*100, name=f"{driver2} Brake", line=dict(color=team2['color'], dash='dot')), row=2, col=1)
 
 st.plotly_chart(fig, use_container_width=True)
+st.subheader("Sector-by-Sector Time Delta")
+sectors = ['Sector1Time', 'Sector2Time', 'Sector3Time']
+delta_df = pd.DataFrame({
+    "Sector": ["S1", "S2", "S3"],
+    "Delta": [
+        (lap2.get_sector_times()[s] - lap1.get_sector_times()[s]).dt.total_seconds().iloc[0]
+        for s in sectors
+    ]
+})
+delta_df["Delta"] = delta_df["Delta"].round(3)
+st.dataframe(delta_df.style.format("{:+.3f}s").applymap(lambda x: f"color: {'lime' if x<0 else 'red'}"))
 
 # Strategy Tabs
 tab1, tab2 = st.tabs(["Tyre Degradation", "Pit Predictor (ML)"])
