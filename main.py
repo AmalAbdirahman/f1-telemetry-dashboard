@@ -25,8 +25,11 @@ TEAM_COLORS = {
     "AlphaTauri": "#0033FF",      # old name fallback
 }
 
-def get_color(team_name: str) -> str:
-    return TEAM_COLORS.get(team_name.strip(), "#CCCCCC")  # fallback grey
+def get_color(team):
+    if pd.isna(team):
+        return "#CCCCCC"
+    team_str = str(team).strip()
+    return TEAM_COLORS.get(team_str, "#CCCCCC")  # fallback grey
 
 # ──────────────────────────────────────
 # Cache for Streamlit Cloud
