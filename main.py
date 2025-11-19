@@ -66,15 +66,16 @@ st.markdown("""
         color: #ffffff !important;
         text-shadow: 0 0 10px rgba(255,255,255,0.3);
     }
-    .stSelectbox > div > label,
-    .stRadio > div > label,
-    .stTextInput > div > label,
-    .stNumberInput > div > label,
-    div[data-testid="stWidgetLabel"] > div,
-    .stExpander > div > label {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-    }
+ .stSelectbox > label, .stRadio > label, .stTextInput > label, .stNumberInput > label,
+.stExpander > label, div[role="button"] label {
+    color: #ffffff !important;
+    text-shadow: 0 0 4px rgba(255,255,255,0.5) !important;  
+    font-weight: 600 !important;
+}
+
+.stCaption, .stMarkdown p {
+    color: #d1d5db !important;  
+}
 </style>
 """, unsafe_allow_html=True)
 
