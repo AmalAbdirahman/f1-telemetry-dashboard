@@ -244,19 +244,29 @@ with tab1:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # Bonus: show estimated cliff point
-        avg_degradation = data.groupby(['Driver', 'Compound'])['LapTimeSec'].apply(
-            lambda x: np.polyfit(data.loc[x.index, 'TyreLife'], x, 1)[0] * 10
-        ).round(2)
+        # ──────────────────────────────────────────────────────────────
+        # Estimated Cliff Point (Fixed Calculation)
+        # ──────────────────────────────────────────────────────────────
+        
+        # 1. Filter for accurate laps only (removes Pit Stops & Safety Car laps)
+        clean_data = data[data['IsAccurate'] == True]
 
-        if not avg_degradation.empty:
-            st.markdown("**Estimated 1-second loss every 10 laps**")
-            st.dataframe(
-                avg_degradation.rename("sec/10 laps").reset_index(),
-                hide_index=True,
-                column_config={"sec/10 laps": st.column_config.NumberColumn(format="+%.2f s")}
-            )
+        # 2. Calculate degradation only if we have clean data
+        if not clean_data.empty:
+            avg_degradation = clean_data.groupby(['Driver', 'Compound'])['LapTimeSec'].apply(
+                lambda x: np.polyfit(clean_data.loc[x.index, 'TyreLife'], x, 1)[0] * 10
+            ).round(2)
 
+            # 3. Display the table
+            if not avg_degradation.empty:
+                st.markdown("**Estimated 1-second loss every 10 laps**")
+                st.dataframe(
+                    avg_degradation.rename("sec/10 laps").reset_index(),
+                    hide_index=True,
+                    column_config={"sec/10 laps": st.column_config.NumberColumn(format="+%.2f s")}
+                )
+        else:
+            st.info("Not enough clean racing laps to calculate degradation.")
 with tab2:
     @st.cache_data
     def train_model():
