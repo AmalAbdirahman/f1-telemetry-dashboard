@@ -7,6 +7,13 @@
 ![Stats](https://img.shields.io/badge/Statistics-Bayesian%20%26%20Monte%20Carlo-purple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+
+
+https://github.com/user-attachments/assets/6feecec1-012a-429f-8f34-239046009208
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://formula1-telemetry-dashboard.streamlit.app/)
+
+
 ## 📊 Project Overview
 
 This dashboard goes beyond standard descriptive analytics by applying **Inferential Statistics**, **Probabilistic Modeling**, and **Machine Learning** to Formula 1 telemetry data.
