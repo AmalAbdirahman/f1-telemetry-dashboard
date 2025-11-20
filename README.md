@@ -51,7 +51,7 @@ This section details the rigorous probabilistic models used in the "Strategy For
     * **Likelihood ($y$):** Observed lap times during the current race.
     * **Posterior:** Calculated using a **Normal-Normal Conjugate Prior** update:
     $$\mu_{post} = \left( \frac{\tau_0 \mu_0 + \tau_{likelihood} \mu_{likelihood}}{\tau_0 + \tau_{likelihood}} \right)$$
-    *(Where precision $\tau = 1/\sigma^2$)*. This yields a robust pace estimate even with minimal data.
+      , *where precision is* $\tau = 1/\sigma^2$. This yields a robust pace estimate even with minimal data.
 
 ### 3. Probabilistic Pit Exit Model
 * **Problem:** Calculating a "safe pit window" using a fixed pit loss time (e.g., 20s) ignores the variance of pit crews and pit limiters.
