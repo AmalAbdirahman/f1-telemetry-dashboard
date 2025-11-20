@@ -98,7 +98,7 @@ with col2:
 # ──────────────────────────────────────
 # DATA LOADER FUNCTION
 # ──────────────────────────────────────
-@st.cache_resource
+@st.cache_resource(ttl=3600, show_spinner = False)
 def load_data(year, gp, session_type):
     """
     Wrapper function to cache the specific session object.
