@@ -501,6 +501,11 @@ with tab4:
     > As the race progresses, we observe new data (**Likelihood**).
     > We use a **Normal-Normal Conjugate Prior** update to calculate the **Posterior** (True Pace).
     """)
+    # Helper to format seconds 
+    def fmt_time(seconds):
+        m = int(seconds // 60)
+        s = seconds % 60
+        return f"{m}:{s:06.3f}"
 
     # Driver Selection
     b_driver = st.selectbox("Select Driver for Analysis", session.results['Abbreviation'].unique(), index=0)
@@ -570,7 +575,7 @@ with tab4:
             
             st.plotly_chart(fig, width="stretch")
             
-            st.success(f"**True Pace Estimate:** {mu_post:.3f}s (Confidence: ±{sigma_post*1.96:.2f}s)")
+            st.success(f"**True Pace Estimate:** {fmt_time(mu_post)} (Confidence: ±{sigma_post*1.96:.3f}s)")
             st.caption("Notice how the Red curve (Posterior) is taller and narrower than the Grey curve? That visualises our Reduced Uncertainty.")
 
 with tab5:
