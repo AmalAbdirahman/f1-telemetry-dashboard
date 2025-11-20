@@ -380,7 +380,7 @@ with tab3:
     # ──────────────────────────────────────────────────────────────
     # Statistical Explanation (The "Why")
     # ──────────────────────────────────────────────────────────────
-    st.markdown("""
+    st.markdown(r"""
     > **ℹ️ Why use Monte Carlo Simulation?**
     >
     > A simple "Time to Catch" calculation assumes drivers run constant lap times (e.g., *Gap ÷ Delta*). 
