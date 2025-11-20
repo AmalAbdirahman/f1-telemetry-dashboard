@@ -95,7 +95,19 @@ with col1:
 with col2:
     st.markdown("# 🏁 **Formula 1 Telemetry & Strategy Hub**")
     st.markdown("**Powered by fastf1 + ML Insights** | *Analyse laps, predict pits, dominate the grid*")
-
+# ──────────────────────────────────────
+# DATA LOADER FUNCTION
+# ──────────────────────────────────────
+@st.cache_resource
+def load_data(year, gp, session_type):
+    """
+    Wrapper function to cache the specific session object.
+    This prevents reloading the data every time you click a button.
+    """
+    session = fastf1.get_session(year, gp, session_type)
+    session.load(telemetry=True, laps=True, weather=True)
+    return session
+    
 # Session Setup
 with st.expander("Session Setup", expanded=True):
     c1, c2, c3 = st.columns(3)
@@ -106,8 +118,9 @@ with st.expander("Session Setup", expanded=True):
     if st.button("🚀 Load Session", type="primary"):
         with st.spinner("🏎️ Fetching telemetry data..."):
             try:
-                session = fastf1.get_session(year, gp, session_type)
-                session.load(telemetry=True, laps=True, weather=True)
+                # CALL THE CACHED FUNCTION HERE
+                session = load_data(year, gp, session_type)
+                
                 st.session_state.session = session
                 st.success(f"✅ Loaded: {session.name}")
                 st.markdown(
@@ -116,7 +129,7 @@ with st.expander("Session Setup", expanded=True):
                     unsafe_allow_html=True
                 )
             except Exception as e:
-                st.error(f"❌ Load failed: {e}. Try 'Bahrain R' for quick test.")
+                st.error(f"❌ Load failed: {e}. Try 'Bahrain' for quick test.")
                 st.stop()
 
 if "session" not in st.session_state:
@@ -181,7 +194,7 @@ fig.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Throttle'], name=f"{driver2
 fig.add_trace(go.Scatter(x=tel1['Distance'], y=tel1['Brake']*100, name=f"{driver1} Brake", line=dict(color=team1['color'], dash='dot')), row=2, col=1)
 fig.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Brake']*100, name=f"{driver2} Brake", line=dict(color=team2['color'], dash='dot')), row=2, col=1)
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 st.subheader("Sector-by-Sector Time Delta")
 
 # Use telemetry which always has sector times
@@ -266,7 +279,7 @@ with tab1:
                         showlegend=False
                     ))
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         # ──────────────────────────────────────────────────────────────
         # Estimated Cliff Point (Fixed Calculation)
@@ -383,8 +396,8 @@ with tab3:
     # Data Preparation
     # ──────────────────────────────────────────────────────────────
     # Get valid racing laps (exclude pit stops & SC)
-    laps_chaser = session.laps.pick_driver(chaser).pick_wo_box().pick_track_status('1').pick_quicklaps()
-    laps_leader = session.laps.pick_driver(leader).pick_wo_box().pick_track_status('1').pick_quicklaps()
+    laps_chaser = session.laps.pick_drivers(chaser).pick_wo_box().pick_track_status('1').pick_quicklaps()
+    laps_leader = session.laps.pick_drivers(leader).pick_wo_box().pick_track_status('1').pick_quicklaps()
 
     if len(laps_chaser) < 5 or len(laps_leader) < 5:
         st.error("Not enough data points to build a statistical distribution.")
@@ -472,7 +485,7 @@ with tab3:
             hovermode="x unified"
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         st.caption(f"Based on last 10 laps: {chaser} (σ={sigma_chaser:.2f}s), {leader} (σ={sigma_leader:.2f}s)")
 
@@ -492,7 +505,7 @@ with tab4:
     # Get Prior Data (Simulated from FP2 or early race laps)
     # In a real app, you'd load the 'FP2' session here. To save time, we'll simulate 
     # the Prior using the first 5 laps of the race as "Initial Belief".
-    laps_driver = session.laps.pick_driver(b_driver).pick_quicklaps().pick_wo_box()
+    laps_driver = session.laps.pick_drivers(b_driver).pick_quicklaps().pick_wo_box()
     
     if len(laps_driver) < 5:
         st.warning("Not enough laps to perform Bayesian Inference.")
@@ -552,7 +565,7 @@ with tab4:
                 template="plotly_dark"
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             
             st.success(f"**True Pace Estimate:** {mu_post:.3f}s (Confidence: ±{sigma_post*1.96:.2f}s)")
             st.caption("Notice how the Red curve (Posterior) is taller and narrower than the Grey curve? That visualises our Reduced Uncertainty.")
@@ -643,7 +656,7 @@ $$
     
     st.metric("Probability of Safe Rejoin", f"{prob_safe*100:.1f}%", 
               delta="Safe" if prob_safe > 0.9 else "Risky" if prob_safe > 0.5 else "Unsafe")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     if prob_safe < 0.5:
         st.error(f"⚠️ UNDERCUT RISK: You will likely emerge {abs(mean_gap_after):.2f}s BEHIND {rival}.")
