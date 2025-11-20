@@ -386,7 +386,7 @@ with tab3:
     > A simple "Time to Catch" calculation assumes drivers run constant lap times (e.g., *Gap ÷ Delta*). 
     > In reality, lap times are a **Stochastic Process** influenced by traffic, errors, and degradation.
     >
-    > This tool models future lap times as random variables $L \sim \mathcal{N}(\mu, \sigma^2)$ and runs **1,000 race simulations** > to calculate the specific probability of an overtake.
+    > This tool models future lap times as random variables $L \sim \mathcal{N}(\mu, \sigma^2)$ and runs **1,000 race simulations** to calculate the specific probability of an overtake.
     """)
     
     col1, col2 = st.columns(2)
