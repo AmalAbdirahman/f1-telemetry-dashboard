@@ -50,7 +50,7 @@ os.makedirs(cache_dir, exist_ok=True)
 fastf1.Cache.enable_cache(cache_dir)
 
 # ──────────────────────────────────────
-# FIXED CSS: Fully readable white text + working image
+#  CSS: For Frontend
 # ──────────────────────────────────────
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
@@ -153,7 +153,7 @@ else:
     lap1 = laps_d1.pick_lap(lap_num)
     lap2 = laps_d2.pick_lap(lap_num)
 
-# Validation: Check for empty telemetry (Extra safety)
+# Validation: Check for empty telemetry (Extra safety on top of previous)
 try:
     tel1 = lap1.get_telemetry().add_distance()
     tel2 = lap2.get_telemetry().add_distance()
@@ -362,7 +362,7 @@ with tab3:
     st.subheader("Monte Carlo Catch Predictor")
     
     # ──────────────────────────────────────────────────────────────
-    # 1. Statistical Explanation (The "Why")
+    # Statistical Explanation (The "Why")
     # ──────────────────────────────────────────────────────────────
     st.markdown("""
     > **ℹ️ Why use Monte Carlo Simulation?**
@@ -380,7 +380,7 @@ with tab3:
         leader = st.selectbox("Leading Driver", session.results['Abbreviation'].unique(), index=1)
 
     # ──────────────────────────────────────────────────────────────
-    # 2. Data Preparation
+    # Data Preparation
     # ──────────────────────────────────────────────────────────────
     # Get valid racing laps (exclude pit stops & SC)
     laps_chaser = session.laps.pick_driver(chaser).pick_wo_box().pick_track_status('1').pick_quicklaps()
@@ -405,7 +405,7 @@ with tab3:
             laps_remaining = st.slider("Laps Remaining", 5, 30, 15)
 
         # ──────────────────────────────────────────────────────────────
-        # 3. The Monte Carlo Engine
+        # The Monte Carlo Engine
         # ──────────────────────────────────────────────────────────────
         n_simulations = 1000
         
@@ -428,7 +428,7 @@ with tab3:
         prob_overtake = np.mean(np.any(overtake_matrix, axis=1)) * 100
 
         # ──────────────────────────────────────────────────────────────
-        # 4. Visualization (Fan Chart / Cone of Uncertainty)
+        #  Visualisation (Fan Chart / Cone of Uncertainty)
         # ──────────────────────────────────────────────────────────────
         
         # Calculate percentiles for the "Cone"
@@ -489,7 +489,7 @@ with tab4:
     # Driver Selection
     b_driver = st.selectbox("Select Driver for Analysis", session.results['Abbreviation'].unique(), index=0)
     
-    # 1. Get Prior Data (Simulated from FP2 or early race laps)
+    # Get Prior Data (Simulated from FP2 or early race laps)
     # In a real app, you'd load the 'FP2' session here. To save time, we'll simulate 
     # the Prior using the first 5 laps of the race as "Initial Belief".
     laps_driver = session.laps.pick_driver(b_driver).pick_quicklaps().pick_wo_box()
@@ -511,7 +511,7 @@ with tab4:
             mu_likelihood = race_data.mean()
             sigma_likelihood = race_data.std() # Assumed known variance for simplicity
             
-            # 2. Calculate Posterior (The Math)
+            # Calculate Posterior (The Math)
             # Formula for Normal-Normal Conjugate Prior
             # Precision = 1/variance
             tau_0 = 1 / (sigma_0 ** 2)
@@ -602,7 +602,7 @@ $$
     with c2:
         pit_variability = st.slider("Pit Stop Variability (σ)", 0.2, 2.0, 0.5)
 
-    # 1. Define Distributions
+    #  Define Distributions
     # Pit Loss ~ N(20s, 0.5s^2)
     # Rival Pace ~ N(CurrentGap, RivalPaceVariance) - simplified for the "moment of impact"
     
@@ -660,4 +660,4 @@ with col_f2:
     st.markdown("[⭐ GitHub Repo](https://github.com/amalabdirahman/f1-telemetry-dashboard) ")
 if st.button("📤 Share Dashboard"):
     st.code(f"https://formula1-telemetry-dashboard.streamlit.app")
-st.caption("© 2025 Amal Abdirahman | Fuelled by F1 obsession 🏁 | [LinkedIn] (https://www.linkedin.com/in/amalabdirahman)")
+st.caption("© 2025 Amal Abdirahman | Fuelled by F1 obsession 🏁 | [LinkedIn](https://www.linkedin.com/in/amalabdirahman)")
