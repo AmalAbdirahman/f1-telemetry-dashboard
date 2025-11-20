@@ -197,24 +197,27 @@ fig.add_trace(go.Scatter(x=tel2['Distance'], y=tel2['Brake']*100, name=f"{driver
 st.plotly_chart(fig, width="stretch")
 st.subheader("Sector-by-Sector Time Delta")
 
-# Use telemetry which always has sector times
-if 'Sector1Time' in tel1.columns and 'Sector2Time' in tel1.columns and 'Sector3Time' in tel1.columns:
-    s1 = (tel2['Sector1Time'].iloc[0] - tel1['Sector1Time'].iloc[0]).total_seconds()
-    s2 = (tel2['Sector2Time'].iloc[0] - tel1['Sector2Time'].iloc[0]).total_seconds()
-    s3 = (tel2['Sector3Time'].iloc[0] - tel1['Sector3Time'].iloc[0]).total_seconds()
+if pd.notnull(lap1['Sector1Time']) and pd.notnull(lap2['Sector1Time']):
+    
+    # Calculate deltas using the lap data directly
+    s1 = (lap2['Sector1Time'] - lap1['Sector1Time']).total_seconds()
+    s2 = (lap2['Sector2Time'] - lap1['Sector2Time']).total_seconds()
+    s3 = (lap2['Sector3Time'] - lap1['Sector3Time']).total_seconds()
+    total = (lap2['LapTime'] - lap1['LapTime']).total_seconds()
     
     delta_df = pd.DataFrame({
         "Sector": ["S1", "S2", "S3", "Total"],
-        "Delta (s)": [s1, s2, s3, s1+s2+s3]
-    }).round(3)
+        "Delta (s)": [s1, s2, s3, total]
+    })
 
+    # Apply the coloring logic
+    # Green if Driver 1 is faster (negative delta), Red if slower
     st.dataframe(
-        delta_df.style.format("{:+.3f}")
-        .applymap(lambda x: f"background-color: {'#004400' if x < 0 else '#440000'}", subset=["Delta (s)"])
-        .applymap(lambda x: "color: lime" if x < 0 else "color: red", subset=["Delta (s)"])
+        delta_df.style.format({"Delta (s)": "{:+.3f}"})
+        .map(lambda x: f"background-color: {'#004400' if x < 0 else '#440000'}; color: {'lime' if x < 0 else 'red'}", subset=["Delta (s)"])
     )
 else:
-    st.info("Sector times not available for this session")
+    st.info("Sector times not available for this session.")
 
 # Strategy Tabs
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Tyre Degradation", "Pit Predictor (ML)", "Strategy Forecast", "Bayesian Pace Updater", "Pit Safety (Prob)"])
