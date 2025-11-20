@@ -135,12 +135,12 @@ with c3:
 
 # Logic to pick the laps
 if lap_type == "Fastest":
-    lap1 = session.laps.pick_driver(driver1).pick_fastest()
-    lap2 = session.laps.pick_driver(driver2).pick_fastest()
+    lap1 = session.laps.pick_drivers(driver1).pick_fastest()
+    lap2 = session.laps.pick_drivers(driver2).pick_fastest()
 else:
     # Validation: Check if the driver actually did this lap
-    laps_d1 = session.laps.pick_driver(driver1)
-    laps_d2 = session.laps.pick_driver(driver2)
+    laps_d1 = session.laps.pick_drivers(driver1)
+    laps_d2 = session.laps.pick_drivers(driver2)
 
     # If user asks for Lap 50 but driver stopped at Lap 20, stop gracefully
     if lap_num > laps_d1['LapNumber'].max():
