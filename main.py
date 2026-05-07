@@ -132,10 +132,18 @@ with st.expander("Session Setup", expanded=True):
                 st.error(f"❌ Load failed: {e}. Try 'Bahrain' for quick test.")
                 st.stop()
 
+# Ensure the session is loaded before moving forward
 if "session" not in st.session_state:
+    st.info("Please configure and load the session above to begin.")
     st.stop()
 
 session = st.session_state.session
+
+try:
+    _ = session.laps 
+except fastf1.core.DataNotLoadedError:
+    with st.spinner("Re-syncing session data..."):
+        session.load(telemetry=True, laps=True, weather=True)
 
 # Driver Selection
 st.subheader("Driver Face-Off")
