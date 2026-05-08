@@ -275,7 +275,7 @@ with tab1:
             hovermode="x unified"
         )
 
-        # Add trend lines per compound/driver
+        # Add trend lines per compound/driver (Linear fit for visual guide)
         for drv in data['Driver'].unique():
             for comp in data['Compound'].unique():
                 subset = data[(data['Driver'] == drv) & (data['Compound'] == comp)]
@@ -292,39 +292,44 @@ with tab1:
                     ))
 
         st.plotly_chart(fig, width="stretch")
+
         # ──────────────────────────────────────────────────────────────
-        # GLM Fit & Estimated Cliff Point
+        # Rigorous GLM Fit: Controlling for Fuel Burn Confounder
         # ──────────────────────────────────────────────────────────────
         
+        # Filter for accurate racing laps
         clean_data = data[(data['IsAccurate'] == True) & (data['TyreLife'] > 0)].dropna(subset=['LapTimeSec', 'TyreLife'])
 
         if not clean_data.empty:
-            st.markdown("### Generalised Linear Model (GLM) Output")
+            st.markdown("### Robust Degradation Model (Fuel Corrected)")
+            st.markdown("*Note: Raw lap times are confounded by fuel burn (cars get lighter and faster). This model applies a standard 0.03s/lap fuel correction to isolate true tyre degradation.*")
             
-            # Prepare data for GLM: LapTimeSec ~ TyreLife + Compound
-            # For simplicity in the UI, we fit a robust linear model per compound
             results_list = []
             
             for comp in clean_data['Compound'].unique():
-                comp_data = clean_data[clean_data['Compound'] == comp]
+                comp_data = clean_data[clean_data['Compound'] == comp].copy()
+                
                 if len(comp_data) > 5:
+                    # Apply fuel correction: Add 0.03s for every lap completed to normalise weight
+                    comp_data['FuelCorrectedPace'] = comp_data['LapTimeSec'] + (comp_data['LapNumber'] * 0.03)
+                    
                     X = comp_data['TyreLife']
                     X = sm.add_constant(X) 
-                    y = comp_data['LapTimeSec']
+                    y = comp_data['FuelCorrectedPace']
                     
-                    # Fit robust linear model
+                    # Fit robust linear model (HuberT handles outliers better than OLS)
                     model = sm.RLM(y, X, M=sm.robust.norms.HuberT())
                     results = model.fit()
                     
-                    # Calculate pseudo R-squared equivalent for display
-                    r2_approx = np.corrcoef(comp_data['TyreLife'], comp_data['LapTimeSec'])[0,1]**2
+                    # Calculate pseudo R-squared equivalent for the corrected data
+                    r2_approx = np.corrcoef(comp_data['TyreLife'], comp_data['FuelCorrectedPace'])[0,1]**2
                     
-                    # Calculate cliff (when degradation exceeds 1.5s from baseline)
-                    base_pace = results.params['const']
                     deg_rate = results.params['TyreLife']
+                    
+                    # Estimate the 'cliff' (arbitrarily defined here as losing 1.5s to pure degradation)
                     cliff_lap = int(1.5 / deg_rate) if deg_rate > 0 else "Stable"
                     
-                    # Calculate optimal pit window (Cliff lap - 2 to Cliff lap + 1)
+                    # Optimal pit window
                     if isinstance(cliff_lap, int) and cliff_lap > 5:
                         pit_window = f"L{cliff_lap - 2} – L{cliff_lap + 1}"
                     else:
@@ -332,8 +337,8 @@ with tab1:
                         
                     results_list.append({
                         "Compound": comp,
-                        "Deg Rate (s/lap)": deg_rate,
-                        "Model R²": round(r2_approx, 3),
+                        "True Deg (s/lap)": deg_rate,
+                        "Model Fit (R²)": round(r2_approx, 3),
                         "Est. Cliff Lap": cliff_lap,
                         "Optimal Pit Window": pit_window
                     })
@@ -341,9 +346,9 @@ with tab1:
             if results_list:
                 results_df = pd.DataFrame(results_list)
                 
-                # Display the metrics exactly as they look in your presentation
+                # Display metrics 
                 col1, col2, col3 = st.columns(3)
-                col1.metric("Model Fit (Soft)", f"R² = {results_df.iloc[0]['Model R²']}" if len(results_df) > 0 else "N/A")
+                col1.metric("Model Fit (Soft)", f"R² = {results_df.iloc[0]['Model Fit (R²)']}" if len(results_df) > 0 else "N/A")
                 col2.metric("Soft Cliff", f"Lap {results_df.iloc[0]['Est. Cliff Lap']}" if len(results_df) > 0 else "N/A")
                 col3.metric("Optimal Pit Window", f"{results_df.iloc[0]['Optimal Pit Window']}" if len(results_df) > 0 else "N/A", "±0.8 laps")
 
@@ -351,11 +356,11 @@ with tab1:
                     results_df,
                     hide_index=True,
                     column_config={
-                        "Deg Rate (s/lap)": st.column_config.NumberColumn(format="+%.3f s")
+                        "True Deg (s/lap)": st.column_config.NumberColumn(format="+%.3f s")
                     }
                 )
         else:
-            st.info("Not enough clean racing laps to fit the GLM.")
+            st.info("Not enough clean racing laps to fit the model.")
 
 
 with tab2:
