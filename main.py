@@ -10,6 +10,7 @@ import scipy.stats as stats
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
+import statsmodels.api as sm
 
 # ──────────────────────────────────────
 # Hardcoded team colors & logos
