@@ -295,7 +295,6 @@ with tab1:
         # ──────────────────────────────────────────────────────────────
         # GLM Fit & Estimated Cliff Point
         # ──────────────────────────────────────────────────────────────
-        import statsmodels.api as sm
         
         clean_data = data[(data['IsAccurate'] == True) & (data['TyreLife'] > 0)].dropna(subset=['LapTimeSec', 'TyreLife'])
 
