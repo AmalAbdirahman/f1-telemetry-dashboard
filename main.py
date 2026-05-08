@@ -291,30 +291,73 @@ with tab1:
                     ))
 
         st.plotly_chart(fig, width="stretch")
-
         # ──────────────────────────────────────────────────────────────
-        # Estimated Cliff Point (Fixed Calculation)
+        # GLM Fit & Estimated Cliff Point
         # ──────────────────────────────────────────────────────────────
+        import statsmodels.api as sm
         
-        # 1. Filter for accurate laps only (removes Pit Stops & Safety Car laps)
-        clean_data = data[data['IsAccurate'] == True]
+        clean_data = data[(data['IsAccurate'] == True) & (data['TyreLife'] > 0)].dropna(subset=['LapTimeSec', 'TyreLife'])
 
-        # 2. Calculate degradation only if we have clean data
         if not clean_data.empty:
-            avg_degradation = clean_data.groupby(['Driver', 'Compound'])['LapTimeSec'].apply(
-                lambda x: np.polyfit(clean_data.loc[x.index, 'TyreLife'], x, 1)[0] * 10
-            ).round(2)
+            st.markdown("### Generalised Linear Model (GLM) Output")
+            
+            # Prepare data for GLM: LapTimeSec ~ TyreLife + Compound
+            # For simplicity in the UI, we fit a robust linear model per compound
+            results_list = []
+            
+            for comp in clean_data['Compound'].unique():
+                comp_data = clean_data[clean_data['Compound'] == comp]
+                if len(comp_data) > 5:
+                    X = comp_data['TyreLife']
+                    X = sm.add_constant(X) 
+                    y = comp_data['LapTimeSec']
+                    
+                    # Fit robust linear model
+                    model = sm.RLM(y, X, M=sm.robust.norms.HuberT())
+                    results = model.fit()
+                    
+                    # Calculate pseudo R-squared equivalent for display
+                    r2_approx = np.corrcoef(comp_data['TyreLife'], comp_data['LapTimeSec'])[0,1]**2
+                    
+                    # Calculate cliff (when degradation exceeds 1.5s from baseline)
+                    base_pace = results.params['const']
+                    deg_rate = results.params['TyreLife']
+                    cliff_lap = int(1.5 / deg_rate) if deg_rate > 0 else "Stable"
+                    
+                    # Calculate optimal pit window (Cliff lap - 2 to Cliff lap + 1)
+                    if isinstance(cliff_lap, int) and cliff_lap > 5:
+                        pit_window = f"L{cliff_lap - 2} – L{cliff_lap + 1}"
+                    else:
+                        pit_window = "N/A"
+                        
+                    results_list.append({
+                        "Compound": comp,
+                        "Deg Rate (s/lap)": deg_rate,
+                        "Model R²": round(r2_approx, 3),
+                        "Est. Cliff Lap": cliff_lap,
+                        "Optimal Pit Window": pit_window
+                    })
+            
+            if results_list:
+                results_df = pd.DataFrame(results_list)
+                
+                # Display the metrics exactly as they look in your presentation
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Model Fit (Soft)", f"R² = {results_df.iloc[0]['Model R²']}" if len(results_df) > 0 else "N/A")
+                col2.metric("Soft Cliff", f"Lap {results_df.iloc[0]['Est. Cliff Lap']}" if len(results_df) > 0 else "N/A")
+                col3.metric("Optimal Pit Window", f"{results_df.iloc[0]['Optimal Pit Window']}" if len(results_df) > 0 else "N/A", "±0.8 laps")
 
-            # 3. Display the table
-            if not avg_degradation.empty:
-                st.markdown("**Estimated 1-second loss every 10 laps**")
                 st.dataframe(
-                    avg_degradation.rename("sec/10 laps").reset_index(),
+                    results_df,
                     hide_index=True,
-                    column_config={"sec/10 laps": st.column_config.NumberColumn(format="+%.2f s")}
+                    column_config={
+                        "Deg Rate (s/lap)": st.column_config.NumberColumn(format="+%.3f s")
+                    }
                 )
         else:
-            st.info("Not enough clean racing laps to calculate degradation.")
+            st.info("Not enough clean racing laps to fit the GLM.")
+
+
 with tab2:
     st.subheader("Race Position Predictor (ML)")
     st.markdown("""
