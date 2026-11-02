@@ -1,4 +1,8 @@
-"""Lap telemetry maths before the overhaul fixes: ported as a starting point."""
+"""Lap telemetry maths: distance alignment, speed delta, time delta, sector deltas.
+
+Pure functions only. Sign convention throughout: Driver 1 minus Driver 2, so a
+negative time delta means Driver 1 was quicker.
+"""
 
 import numpy as np
 import pandas as pd
@@ -45,3 +49,47 @@ def prepare_lap(raw: pd.DataFrame, lap_start, lap_end) -> pd.DataFrame:
     steps = np.diff(time) * (speed_ms[1:] + speed_ms[:-1]) / 2
     lap["Distance"] = np.concatenate([[0.0], np.cumsum(steps)])
     return lap[columns].reset_index(drop=True)
+
+
+
+def common_grid(distance_1, distance_2) -> np.ndarray:
+    """Return the shared distance grid for two laps."""
+    return np.linspace(0, min(np.max(distance_1), np.max(distance_2)), GRID_POINTS)
+
+
+def align(lap: pd.DataFrame, grid: np.ndarray, channel: str) -> np.ndarray:
+    """Interpolate a channel onto the grid, stretching the lap to the grid's length.
+
+    Both laps cover the same track, so any difference in integrated distance is
+    measurement drift. Stretching keeps corners lined up and makes a time-delta
+    trace finish exactly on the difference between the two lap times.
+    """
+    distance = lap["Distance"].to_numpy(float)
+    scaled = distance * grid[-1] / distance[-1]
+    return np.interp(grid, scaled, lap[channel].to_numpy(float))
+
+
+def speed_delta(lap_1: pd.DataFrame, lap_2: pd.DataFrame) -> float:
+    """Mean speed difference (Driver 1 − Driver 2), compared at equal distance."""
+    grid = common_grid(lap_1["Distance"], lap_2["Distance"])
+    return float(np.mean(align(lap_1, grid, "Speed") - align(lap_2, grid, "Speed")))
+
+
+def time_delta(lap_1: pd.DataFrame, lap_2: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Return (grid, t1 − t2) along the lap. Negative means Driver 1 is ahead."""
+    grid = common_grid(lap_1["Distance"], lap_2["Distance"])
+    return grid, align(lap_1, grid, "Time") - align(lap_2, grid, "Time")
+
+
+def sector_deltas(lap_1: pd.Series, lap_2: pd.Series) -> pd.DataFrame:
+    """Return S1, S2, S3 and whole-lap deltas as lap 1 − lap 2.
+
+    Negative means Driver 1 was faster. Each row is checked on its own, and a
+    missing time gives None so the UI can show "n/a".
+    """
+    rows = []
+    for label, column in (("S1", "Sector1"), ("S2", "Sector2"), ("S3", "Sector3"), ("Lap", "LapTimeSec")):
+        t1, t2 = lap_1.get(column), lap_2.get(column)
+        delta = None if pd.isna(t1) or pd.isna(t2) else float(t1) - float(t2)
+        rows.append({"Sector": label, "Delta": delta})
+    return pd.DataFrame(rows, dtype=object)
