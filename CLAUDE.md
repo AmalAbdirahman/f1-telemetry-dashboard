@@ -166,7 +166,7 @@ CSS-only (scripts in `st.markdown`/`st.html` don't run reliably), subtle and fas
 
 - Pin `requirements.txt` to versions actually installed and tested; add `scipy`.
   `requirements-dev.txt` = `-r requirements.txt` + pytest.
-- Add an MIT `LICENSE`. Keep `.devcontainer` working if one is added back (it is not in this folder).
+- Add an MIT `LICENSE`. Keep `.devcontainer` working (update its commands if paths change).
 - Rewrite README to match the code exactly: features table, method section with formulas, honest
   limitations, run/test instructions, structure, CI badge. Keep the existing demo video embed.
 - Footer: correct tech stack, real links, year from `datetime`.
