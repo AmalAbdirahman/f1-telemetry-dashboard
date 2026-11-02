@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environments
+venv/
+.venv/
+
+# IDE
+.idea/
+
+# OpenF1 server source (a separate git repo; the app calls the public API instead)
+openf1/
+
+# Screenshots and local data
+.screenshots/
