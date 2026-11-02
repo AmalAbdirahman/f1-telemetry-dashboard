@@ -1,127 +1,115 @@
-# 🏎️ Formula 1 Telemetry & Strategy Dashboard
+# Formula 1 Telemetry & Strategy Dashboard
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://formula1-telemetry-dashboard.streamlit.app/)
-
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.31-FF4B4B)
-![Stats](https://img.shields.io/badge/Statistics-Bayesian%20%26%20Monte%20Carlo-purple)
+[![Tests](https://github.com/AmalAbdirahman/f1-telemetry-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/AmalAbdirahman/f1-telemetry-dashboard/actions/workflows/tests.yml)
+![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
-
-
 
 https://github.com/user-attachments/assets/6feecec1-012a-429f-8f34-239046009208
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://formula1-telemetry-dashboard.streamlit.app/)
+A Streamlit app that compares two drivers' laps and then tests the strategy behind them with statistical models: tyre degradation, Monte Carlo overtake simulation, Bayesian pace and pit-exit safety, plus a small position predictor that is always scored against a naive baseline.
 
+Data comes from [OpenF1](https://openf1.org), a free, unofficial API covering 2023 onwards. This project is not associated with Formula 1.
 
-## 📊 Project Overview
+## Features
 
-This dashboard goes beyond standard descriptive analytics by applying **Inferential Statistics**, **Probabilistic Modeling**, and **Machine Learning** to Formula 1 telemetry data.
+| Section | What it shows | Method |
+|---|---|---|
+| Driver Face-Off | Speed, throttle, brake and a time delta along the lap, plus sector deltas | Traces aligned on a shared distance grid |
+| Tyres | Seconds lost per lap of tyre age, per driver and stint | Huber robust fit with a bootstrap 90% interval |
+| Position Predictor | Position 3 laps ahead, next to a "nothing changes" baseline | Gradient boosting, tested on later laps |
+| Overtake Forecast | Chance a chasing car gets ahead on the clock | Monte Carlo with AR(1) correlated laps |
+| Bayesian Pace | A driver's true pace from only a few laps | Empirical-Bayes Normal-Normal update |
+| Pit Safety | Pit loss measured from the race, and the chance of a clean rejoin | Normal model of the gap after the stop |
 
-While traditional dashboards focus on *historical traces* (what happened), this tool focuses on **stochastic prediction** (what might happen). It leverages **FastF1** for granular data and **SciPy/Scikit-Learn** for statistical computation, offering insights into tyre degradation, overtake probabilities, and pit window safety.
+Race-only tabs explain themselves in qualifying and practice. The sidebar offers finished sessions only, leaving out testing and cancelled events.
 
----
+## Method
 
-## 🚀 Core Dashboard Features
+Only representative laps feed the models: green-flag, not a pit lap, accurately timed, and within 107% of that driver's stint median.
 
-These modules provide the fundamental analysis layer, allowing users to visualise race dynamics and vehicle performance.
+**Lap table.** OpenF1 serves separate tables, so `f1dash/data.py` rebuilds tyre age from stints, position from the position feed at the end of each lap, and track status from race-control messages.
 
-### 1. Telemetry Analysis (Speed Traces)
-* **Distance-based Plotting:** Telemetry data (Speed, Throttle, Brake) is mapped against track distance (meters) rather than time. This corrects for cornering speed differences, ensuring accurate comparison between cars.
-* **Delta Calculation:** Calculates sector-by-sector time loss to pinpoint exactly where a driver is losing performance.
+**Time delta.** OpenF1 has no distance channel, so distance is speed integrated over time. Both laps are stretched to the same length and interpolated onto 500 points, then
 
-### 2. Tyre Degradation Analysis
-* **Trend Modeling:** Uses linear regression to quantify tyre wear (seconds lost per lap).
-* **Smart Filtering:** The algorithm automatically filters out "In-Laps," "Out-Laps," and Safety Car periods (`IsAccurate == True`) to ensure the regression model is trained only on representative clean-air racing laps.
+$$\Delta(d) = t_1(d) - t_2(d)$$
 
-### 3. Race Position Predictor (Machine Learning)
-* **Model:** `GradientBoostingRegressor` (Scikit-learn).
-* **Logic:** Predicts future track position ($t+3$ laps) based on current Tyre Age, Compound, and Lap Number.
-* **Validation:** Displays Mean Absolute Error (MAE) backtested against the current session to provide confidence intervals for the prediction.
+A negative value means Driver 1 is ahead at that point, and the trace ends exactly on the official lap time gap.
 
----
+**Tyre degradation.** Fuel-corrected pace is lap time + 0.03 × lap number, which cancels the speed gained as fuel burns. For each driver and stint, pace is fitted against tyre age:
 
-## 🧠 Advanced Statistical Methodology
+$$\text{pace} = \alpha + \beta \cdot \text{TyreLife}$$
 
-This section details the rigorous probabilistic models used in the "Strategy Forecast" and "Bayesian Inference" tabs.
+R² and RMSE come from the fit's residuals, and the 90% interval for $\beta$ from 500 seeded bootstrap resamples.
 
-### 1. Monte Carlo Simulation (Overtake Probability)
-* **Problem:** Deterministic linear extrapolation (e.g., "Gap / Delta = Laps to Catch") fails to account for lap time variance and degradation.
-* **Solution:** We model future lap times as a **Stochastic Process**. Future laps $L_t$ are treated as random variables drawn from a Normal Distribution based on the driver's recent consistency:
-    $$L_{driver} \sim \mathcal{N}(\mu_{recent}, \sigma^2_{recent})$$
-* **Inference:** We run $N=1000$ race simulations. The probability of an overtake is the proportion of simulations where the chaser's cumulative time is less than the leader's.
+**Overtake simulation.** The gap after $n$ laps is
 
-### 2. Bayesian Pace Inference (Conjugate Priors)
-* **Problem:** Early in a race ($n < 5$ laps), sample sizes are too small to determine a driver's true pace using simple averages.
-* **Solution:** We use **Bayesian Inference** to update our beliefs as new data arrives.
-    * **Prior ($\mu_0$):** Derived from Free Practice 2 (Long Run simulations).
-    * **Likelihood ($y$):** Observed lap times during the current race.
-    * **Posterior:** Calculated using a **Normal-Normal Conjugate Prior** update:
-    $$\mu_{post} = \left( \frac{\tau_0 \mu_0 + \tau_{likelihood} \mu_{likelihood}}{\tau_0 + \tau_{likelihood}} \right)$$
-      , *where precision is* $\tau = 1/\sigma^2$. This yields a robust pace estimate even with minimal data.
+$$\text{gap}_n = \text{gap}_0 + \sum_{i=1}^{n} (\text{chaser}_i - \text{leader}_i)$$
 
-### 3. Probabilistic Pit Exit Model
-* **Problem:** Calculating a "safe pit window" using a fixed pit loss time (e.g., 20s) ignores the variance of pit crews and pit limiters.
-* **Solution:** We model the total time lost in a pit stop ($L_{pit}$) as a sum of independent variances:
-    $$\sigma^2_{total} = \sigma^2_{entry} + \sigma^2_{mechanics} + \sigma^2_{launch}$$
-* **Inference:** The probability of a safe rejoin ($P_{safe}$) is the integral of the Gaussian distribution where the gap remains positive:
-    $$P_{safe} = \int_{0}^{\infty} \mathcal{N}(\text{Gap} - \mu_{pit}, \sigma^2_{total}) \, dx$$
+and the chaser is ahead when it is negative. Each future lap $k$ is the recent mean (last 10 clean laps at most) plus the tyre trend × $k$, plus an AR(1) deviation:
 
----
+$$e_k = \rho e_{k-1} + \sqrt{1-\rho^2}\,\sigma z_k$$
 
-## 🧐 Critical Analysis & Model Limitations
+$\rho$ is the lag-1 autocorrelation of detrended recent laps, clipped to [0, 0.8], and can be overridden.
 
-As a statistical project, it is crucial to acknowledge the simplifying assumptions made in these models and how they deviate from real-world physics.
+**Bayesian pace.** The prior is the spread of per-driver mean laps across the session's field. The lap-to-lap $\sigma$ is the within-driver SD, pooled across the field. After $n$ laps with mean $\bar{y}$:
 
-**1. The Linearity of Tyre Degradation**
-The current model assumes a **Linear Regression** ($y = mx + c$) for tyre wear. In reality, tyre physics is highly non-linear.
-* **Critique:** Tyres typically exhibit a "Thermal Phase" (getting faster as they warm up), followed by a "Stable Plateau," and finally a "Cliff" (exponential decay). A linear model tends to underestimate wear at the end of a stint (the cliff) and overestimate wear during the stable phase.
-* **Proposed Improvement:** A more rigorous approach would fit a **3rd-degree Polynomial** or a **Sigmoid Function** to capture the "Cliff" effect. Additionally, accounting for fuel load burn-off (approx 0.03s/lap gain) is necessary to isolate pure tyre degradation from vehicle mass reduction.
+$$\tau = \frac{1}{\sigma_0^2} + \frac{n}{\sigma^2}, \qquad \mu_{post} = \frac{\mu_0/\sigma_0^2 + n\bar{y}/\sigma^2}{\tau}, \qquad \sigma_{post}^2 = \frac{1}{\tau}$$
 
-**2. Independence Assumption in Monte Carlo**
-The Overtake Simulation assumes that lap times are Independent and Identically Distributed (I.I.D).
-* **Critique:** In racing, lap times are **Auto-Correlated**. A mistake in the final sector of Lap $t$ often compromises the start of Lap $t+1$. Furthermore, blue flags (traffic) usually affect clusters of laps, not single random instances.
-* **Proposed Improvement:** Implementing a **Markov Chain Monte Carlo (MCMC)** approach or adding an auto-correlation term to the variance generation would model these "streaks" of bad/good pace more accurately.
+**Pit safety.** The loss for one stop is (in-lap + out-lap) − 2 × the driver's median clean lap, pooled over green-flag stops. Then
 
-**3. Feature Scarcity in ML Prediction**
-The Position Predictor relies primarily on Tyre Age and Lap Number.
-* **Critique:** This ignores critical variables such as **Track Temperature** (affecting thermal degradation), **ERS Deployment Modes**, and **Fuel Mass**.
-* **Proposed Improvement:** Integrating weather APIs for track temp and estimating fuel load based on total lap count would significantly reduce the Mean Absolute Error (MAE).
+$$P_{safe} = P(\text{gap} - L > \text{clearance}), \quad L \sim \mathcal{N}(\mu, \sigma^2)$$
 
----
+By default $\sigma^2$ is the spread across stops plus the rival's lap variance. That spread already contains the entry, stationary and launch phases, so a separate manual mode replaces it with three assumed phase variances instead of adding them on top.
 
-## 💻 Installation & Usage
+**Position predictor.** A `GradientBoostingRegressor` uses lap number, tyre age, position and compound. The target is the same driver's position 3 laps later, and laps with no known future are dropped. The last 20% of the race is held out, and training rows whose target lands in that period are removed.
 
-### Prerequisites
-* Python 3.9+
-* `pip`
+## Limitations
 
-### 1. Clone the Repository
+- **The predictor loses to the baseline.** In five real races tested (2023 to 2026) "position stays the same" won every time, for example 0.29 places of error against 1.84 at the 2026 Mexico City Grand Prix. Positions rarely change over three laps, and the model sees a single race. The app says so whenever it happens.
+- **The fuel figure is a constant assumption.** Tyre age and lap number rise together within a stint, so 0.03 s/lap adds directly to every degradation slope. Compare slopes with each other instead of reading them as absolute figures.
+- **Degradation is linear.** A tyre cliff is not modelled, and "laps to lose 1 s" is a heuristic.
+- **Ahead on the clock is not a pass.** The overtake simulation leaves out dirty air, defending, the overtaking aid of the era (DRS before 2026, the new overtake mode from 2026), pit stops and safety cars. It also uses each driver's end-of-session form, whatever gap you enter.
+- **Telemetry is coarse.** About four samples a second means short events can be missed, and integrated distance drifts by a few metres.
+- **Measured pit spread can be wide.** Slow stops and changing weather inflate it.
+- **Data limits.** Nothing before 2023, and OpenF1's free tier allows 30 requests a minute and locks data while a session is live. Rebuilt columns are close to, but not the same as, official timing.
+
+## Run it
+
+Requires Python 3.13.
+
 ```bash
-git clone [https://github.com/AmalAbdirahman/f1-telemetry-dashboard.git](https://github.com/AmalAbdirahman/f1-telemetry-dashboard.git)
+git clone https://github.com/AmalAbdirahman/f1-telemetry-dashboard.git
 cd f1-telemetry-dashboard
-```
-### 2. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-### 3. Run the Dashboard
-
-```bash
+pip install -r requirements-dev.txt
 streamlit run main.py
 ```
 
----
+No account or API key is needed.
 
-## 📚 Tech Stack
+## Test it
 
-**Frontend:** Streamlit (Custom CSS for F1 aesthetics)
+```bash
+pytest -q
+```
 
-**Data Source:** FastF1 API (Live & Historical Telemetry)
+Tests make no network calls: `tests/fake_openf1.py` is a synthetic stand-in for the API. `tests/test_app_smoke.py` runs the whole app against it for race, qualifying and empty sessions.
 
-**Visualisation:** Plotly Graph Objects (Interactive, Distance-based axes)
+## Structure
 
-**Statistics:** SciPy (PDFs, CDFs, Norm), NumPy (Monte Carlo)
+```
+main.py             entry point
+f1dash/
+  config.py         colours, design tokens, modelling constants
+  openf1.py         REST client with rate limits, retries and a disk cache
+  data.py           session loading and the rebuilt lap table
+  models/           pure, tested maths: no Streamlit or network code
+  ui/               theme, charts, sidebar, Face-Off and one module per tab
+assets/style.css    brand details and motion
+.streamlit/         theme configuration
+tests/              one test file per module, plus the app smoke test
+```
 
-**Machine Learning:** Scikit-Learn (Gradient Boosting, Train-Test Split)
+## License
+
+[MIT](LICENSE). Data credit: [OpenF1](https://openf1.org).
