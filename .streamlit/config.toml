@@ -1,0 +1,20 @@
+[theme]
+base = "dark"
+primaryColor = "#E8002D"
+backgroundColor = "#0A0A0A"
+secondaryBackgroundColor = "#131313"
+textColor = "#F5F5F5"
+borderColor = "#262626"
+linkColor = "#5AA9E6"
+redColor = "#E8002D"
+yellowColor = "#FFD600"
+greenColor = "#39B54A"
+blueColor = "#0072CE"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap, sans-serif"
+headingFont = "Titillium Web:https://fonts.googleapis.com/css2?family=Titillium+Web:wght@600;700&display=swap, sans-serif"
+baseRadius = "6px"
+showSidebarBorder = true
+metricValueFontWeight = 600
+
+[browser]
+gatherUsageStats = false

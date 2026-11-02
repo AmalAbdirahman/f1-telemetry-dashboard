@@ -76,7 +76,7 @@ def render(session: data.Session) -> None:
     any_lap, at_flag, catch = st.columns(3)
     any_lap.metric("Ahead at any point", formatting.percent(summary.p_any))
     at_flag.metric("Ahead at the flag", formatting.percent(summary.p_flag))
-    catch.metric("Median lap to get ahead", "No catch" if summary.median_catch_lap is None else f"Lap +{summary.median_catch_lap}")
+    catch.metric("If it happens, median lap", "No catch" if summary.median_catch_lap is None else f"Lap +{summary.median_catch_lap}")
     st.plotly_chart(charts.gap_fan_figure(summary, chaser, leader), width="stretch", key=f"fan_{key}")
     st.caption(
         f"Based on recent clean laps: {chaser} {formatting.lap_time(form_chaser.mean)} (n = {form_chaser.n}, "

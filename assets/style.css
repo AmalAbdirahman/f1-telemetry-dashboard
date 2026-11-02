@@ -1,1 +1,194 @@
-/* Placeholder until the design phase. */
+/* Colours, fonts and radius come from .streamlit/config.toml where it can set them.
+   This sheet adds only the brand details and motion Streamlit has no setting for.
+   Selectors use data-testid and ARIA roles, which stay stable between versions. */
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #131313;
+  --surface-2: #1b1b1b;
+  --border: #262626;
+  --text: #f5f5f5;
+  --text-dim: #9ca3af;
+  --soft: #e8002d;
+  --medium: #ffd600;
+  --hard: #f2f2f2;
+  --inter: #39b54a;
+  --wet: #0072ce;
+  --display: "Titillium Web", sans-serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Header and event banner */
+.f1-header h1 {
+  margin: 0;
+  padding: 0;
+  font-family: var(--display);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.f1-header p {
+  margin: 0.15rem 0 0.75rem;
+  color: var(--text-dim);
+}
+.f1-chequer {
+  height: 8px;
+  background: repeating-conic-gradient(var(--hard) 0 25%, var(--bg) 0 50%) 0 0 / 8px 8px;
+  opacity: 0.8;
+}
+.f1-event {
+  padding: 0.75rem 0 0.25rem;
+  animation: f1-fade 350ms var(--ease) both;
+}
+.f1-event h2 {
+  margin: 0;
+  padding: 0;
+  font-family: var(--display);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+}
+.f1-event p {
+  margin: 0;
+  color: var(--text-dim);
+}
+.f1-event .f1-event-kicker {
+  color: var(--soft);
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Kerb-stripe divider */
+.f1-kerb {
+  height: 4px;
+  margin: 1rem 0;
+  background: repeating-linear-gradient(-45deg, var(--soft) 0 10px, var(--hard) 10px 20px);
+}
+
+/* Metric cards, with a speed line that sweeps across on hover */
+[data-testid="stMetric"] {
+  position: relative;
+  overflow: hidden;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+[data-testid="stMetric"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--medium), transparent);
+  transform: translateX(-100%);
+}
+[data-testid="stMetric"]:hover::after {
+  animation: f1-sweep 350ms var(--ease);
+}
+[data-testid="stMetricValue"] {
+  font-family: var(--display);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tabs: slide in from the right, and each tab owns one compound colour */
+[role="tabpanel"] > * {
+  animation: f1-slide 300ms var(--ease) both;
+}
+[data-baseweb="tab-highlight"],
+[data-testid="stTabs"] [role="tab"] {
+  transition: all 200ms var(--ease);
+}
+[data-testid="stTabs"] [role="tab"]:hover {
+  color: var(--medium);
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] p {
+  font-weight: 600;
+}
+[data-baseweb="tab-highlight"] {
+  background-color: var(--soft);
+}
+
+/* Keyboard focus */
+:focus-visible {
+  outline: 2px solid var(--medium);
+  outline-offset: 2px;
+}
+
+/* Lights-out loader */
+.f1-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+}
+.f1-lights {
+  display: flex;
+  gap: clamp(0.5rem, 2vw, 1rem);
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.f1-light {
+  width: clamp(1.75rem, 7vw, 3rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--surface-2);
+  animation: 2.4s linear infinite;
+}
+.f1-loader-label {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+/* Lights fill one by one, hold, then all go out together. */
+.f1-light:nth-child(1) { animation-name: f1-light-1; }
+.f1-light:nth-child(2) { animation-name: f1-light-2; }
+.f1-light:nth-child(3) { animation-name: f1-light-3; }
+.f1-light:nth-child(4) { animation-name: f1-light-4; }
+.f1-light:nth-child(5) { animation-name: f1-light-5; }
+@keyframes f1-light-1 { 0%, 8% { background: var(--surface-2); } 8.01%, 74% { background: var(--soft); } 74.01%, 100% { background: var(--surface-2); } }
+@keyframes f1-light-2 { 0%, 21% { background: var(--surface-2); } 21.01%, 74% { background: var(--soft); } 74.01%, 100% { background: var(--surface-2); } }
+@keyframes f1-light-3 { 0%, 34% { background: var(--surface-2); } 34.01%, 74% { background: var(--soft); } 74.01%, 100% { background: var(--surface-2); } }
+@keyframes f1-light-4 { 0%, 47% { background: var(--surface-2); } 47.01%, 74% { background: var(--soft); } 74.01%, 100% { background: var(--surface-2); } }
+@keyframes f1-light-5 { 0%, 60% { background: var(--surface-2); } 60.01%, 74% { background: var(--soft); } 74.01%, 100% { background: var(--surface-2); } }
+
+@keyframes f1-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes f1-slide {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes f1-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+/* Phone widths */
+@media (max-width: 640px) {
+  [data-testid="stTabs"] [role="tablist"] {
+    overflow-x: auto;
+  }
+  [data-testid="stMetric"] {
+    padding: 0.55rem 0.7rem;
+  }
+}
+
+/* No motion for people who ask for none */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .f1-light {
+    background: var(--soft);
+  }
+}
