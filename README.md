@@ -8,8 +8,6 @@
 
 
 
-https://github.com/user-attachments/assets/6feecec1-012a-429f-8f34-239046009208
-
 A Streamlit app that compares two drivers' laps and then tests the strategy behind them with statistical models: tyre degradation, Monte Carlo overtake simulation, Bayesian pace and pit-exit safety, plus a small position predictor that is always scored against a naive baseline.
 
 Data comes from [OpenF1](https://openf1.org), a free, unofficial API covering 2023 onwards. This project is not associated with Formula 1.
