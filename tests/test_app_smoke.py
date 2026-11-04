@@ -111,3 +111,17 @@ def test_a_season_with_nothing_finished_is_explained(monkeypatch):
     app.run()
     assert not app.exception
     assert "No" in app.sidebar.info[0].value
+
+
+def test_race_lap_slider_is_shared_and_resets_with_the_session():
+    app = run_app()
+    key = f"race_lap_{fake_openf1.RACE_KEY}"
+    slider = app.slider(key=key)
+    assert slider.max == fake_openf1.RACE_LAPS and slider.value == fake_openf1.RACE_LAPS // 2
+    slider.set_value(25).run()
+    assert_healthy(app)
+    app.sidebar.selectbox(key="session_name").set_value("Qualifying").run()
+    assert_healthy(app)
+    assert not [s for s in app.slider if s.key == key]
+    app.sidebar.selectbox(key="session_name").set_value("Race").run()
+    assert app.slider(key=key).value == fake_openf1.RACE_LAPS // 2

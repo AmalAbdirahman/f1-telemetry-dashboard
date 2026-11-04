@@ -70,14 +70,28 @@ def _bootstrap_slope_ci(x: np.ndarray, y: np.ndarray, seed: int) -> tuple[float,
     return float(low), float(high)
 
 
-def fit_stint(tyre_life, pace, seed: int = config.SEED) -> StintFit | None:
-    """Fit pace against tyre age. Returns None when the stint is too short."""
+def _fit_line(tyre_life, pace) -> tuple[np.ndarray, np.ndarray, float, float] | None:
+    """Huber RLM line through pace against tyre age, or None when the stint is too short."""
     x = np.asarray(tyre_life, dtype=float)
     y = np.asarray(pace, dtype=float)
     if len(x) < config.MIN_STINT_LAPS or np.unique(x).size < 2:
         return None
     result = sm.RLM(y, sm.add_constant(x), M=sm.robust.norms.HuberT()).fit()
-    intercept, slope = float(result.params[0]), float(result.params[1])
+    return x, y, float(result.params[0]), float(result.params[1])
+
+
+def stint_slope(tyre_life, pace) -> float | None:
+    """The same robust slope as ``fit_stint``, without the slow bootstrap."""
+    line = _fit_line(tyre_life, pace)
+    return None if line is None else line[3]
+
+
+def fit_stint(tyre_life, pace, seed: int = config.SEED) -> StintFit | None:
+    """Fit pace against tyre age. Returns None when the stint is too short."""
+    line = _fit_line(tyre_life, pace)
+    if line is None:
+        return None
+    x, y, intercept, slope = line
     residuals = y - (intercept + slope * x)
     total = float(((y - y.mean()) ** 2).sum())
     r2 = 1 - float((residuals**2).sum()) / total if total > 0 else 0.0

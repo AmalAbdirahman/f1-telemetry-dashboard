@@ -10,6 +10,7 @@ import streamlit as st
 
 from f1dash import data
 from f1dash.models import degradation, position
+from f1dash.models import race_state as race_state_model
 
 HOUR = 3600
 
@@ -32,6 +33,11 @@ def load_telemetry(session_key: int, driver_number: int, lap_start, lap_end) -> 
 @st.cache_data(ttl=HOUR, max_entries=32, show_spinner=False)
 def stint_fits(clean_laps: pd.DataFrame) -> pd.DataFrame:
     return degradation.fit_all_stints(clean_laps)
+
+
+@st.cache_data(ttl=HOUR, max_entries=64, show_spinner=False)
+def race_state(laps: pd.DataFrame, lap_n: int) -> pd.DataFrame:
+    return race_state_model.race_state(laps, lap_n)
 
 
 @st.cache_data(ttl=HOUR, max_entries=6, show_spinner=False)

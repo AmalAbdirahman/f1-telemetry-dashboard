@@ -5,7 +5,7 @@ import logging
 import streamlit as st
 
 from f1dash.openf1 import OpenF1Error
-from f1dash.ui import faceoff, sidebar, state, theme
+from f1dash.ui import faceoff, race_lap, sidebar, state, theme
 from f1dash.ui.tabs import bayes, forecast, pit_safety, predictor, tyres
 
 st.set_page_config(page_title="F1 Telemetry & Strategy", page_icon="🏁", layout="wide")
@@ -62,6 +62,7 @@ def main() -> None:
     faceoff.render(session)
     driver_1 = st.session_state[f"driver_1_{session.key}"]
     driver_2 = st.session_state[f"driver_2_{session.key}"]
+    lap_n = race_lap.render(session)  # noqa: F841  (the race tabs read it from the next step on)
 
     tab_tyres, tab_predictor, tab_forecast, tab_bayes, tab_pit = st.tabs(
         ["Tyres", "Position Predictor", "Overtake Forecast", "Bayesian Pace", "Pit Safety"]

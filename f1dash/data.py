@@ -20,6 +20,7 @@ import pandas as pd
 
 from f1dash import config, openf1
 from f1dash.models import telemetry as telemetry_model
+from f1dash.models.filters import clean_laps  # noqa: F401  (re-exported for the UI)
 
 # Track status codes follow the F1 timing feed: 1 = clear.
 YELLOW, SAFETY_CAR, RED, VSC = "2", "4", "5", "6"
@@ -306,21 +307,6 @@ def load_session(session_key: int) -> Session:
         drivers=drivers,
         laps=laps,
     )
-
-
-def clean_laps(laps: pd.DataFrame) -> pd.DataFrame:
-    """Keep representative laps: green-flag, non-pit, accurately timed.
-
-    Laps over 107% of the median for that driver's stint are also dropped. This
-    removes cool-down laps in practice and qualifying, and is relative to the
-    stint so that a wet stint keeps its slower laps.
-    """
-    if laps.empty:
-        return laps
-    mask = (laps["TrackStatus"] == "1") & ~laps["PitInLap"] & ~laps["PitOutLap"] & laps["IsAccurate"]
-    clean = laps[mask]
-    typical = clean.groupby(["Driver", "Stint"], dropna=False)["LapTimeSec"].transform("median")
-    return clean[clean["LapTimeSec"] <= config.QUICK_LAP_RATIO * typical]
 
 
 def fastest_lap(laps: pd.DataFrame) -> pd.Series | None:
