@@ -45,7 +45,9 @@ def test_race_renders_every_tab():
     assert len(app.dataframe) >= 2  # Order at lap N and the degradation table.
     labels = [m.label for m in app.metric]
     assert "Model error (MAE)" in labels and "Baseline error (MAE)" in labels
-    assert "Ahead at any point" in labels and "Safe rejoin" in labels and "Posterior mean" in labels
+    assert "Ahead at any point" in labels and "Posterior mean" in labels
+    assert any(label.startswith("Rejoins ahead of") for label in labels)
+    assert any(label.startswith("Rejoin if pitting on lap") for label in labels)
 
 
 def test_qualifying_explains_race_only_tabs():
@@ -126,3 +128,27 @@ def test_race_lap_slider_is_shared_and_resets_with_the_session():
     assert not [s for s in app.slider if s.key == key]
     app.sidebar.selectbox(key="session_name").set_value("Race").run()
     assert app.slider(key=key).value == fake_openf1.RACE_LAPS // 2
+
+
+def test_strategy_tabs_start_from_the_race_state_at_lap_n():
+    app = run_app()
+    key = fake_openf1.RACE_KEY
+    # VER leads PER at lap 15 (fake paces 80.0 and 80.3 s); the gap comes from the data, not a default.
+    gap = app.number_input(key=f"ot_gap_{key}_15_PER_VER")
+    assert 3.0 < gap.value < 6.0
+    assert app.number_input(key=f"ot_laps_{key}_15_PER_VER").value == fake_openf1.RACE_LAPS - 15
+    pit_gap = app.number_input(key=f"pit_gap_{key}_15_VER_PER")
+    assert pit_gap.value == pytest.approx(gap.value)
+    # A manual override lasts only for that lap: moving the slider restores measured values.
+    gap.set_value(0.5).run()
+    assert_healthy(app)
+    app.slider(key=f"race_lap_{key}").set_value(20).run()
+    assert_healthy(app)
+    assert app.number_input(key=f"ot_gap_{key}_20_PER_VER").value > 3.0
+
+
+def test_early_laps_are_explained_not_simulated():
+    app = run_app()
+    app.slider(key=f"race_lap_{fake_openf1.RACE_KEY}").set_value(3).run()
+    assert_healthy(app)
+    assert "too few to judge pace" in all_text(app)

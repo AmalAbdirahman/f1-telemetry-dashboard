@@ -127,3 +127,8 @@ def project_clock(state: pd.DataFrame, laps_ahead: int) -> pd.Series:
     k = laps_ahead
     clock = state["GapToLeader"] + k * pace + slope * k * (k + 1) / 2
     return pd.Series(clock.to_numpy(float), index=state["Driver"].to_numpy())
+
+
+def recent_laps_at(laps: pd.DataFrame, lap_n: int, driver: str, window: int = config.RECENT_LAPS) -> np.ndarray:
+    """A driver's last ``window`` clean lap times by the end of lap N."""
+    return recent_laps(clean_laps(laps_up_to(laps, lap_n)), driver, window)

@@ -121,3 +121,10 @@ def test_projection_fills_missing_pace_with_the_field():
     )
     clock = race_state.project_clock(state, 1)
     assert clock["B"] == pytest.approx(1 + 81.0)
+
+
+def test_recent_laps_at_lap_n_ignore_later_laps():
+    laps = make_race({"VER": 80.0, "LEC": 80.5}, n_laps=20)
+    laps.loc[laps["LapNumber"] > 12, "LapTimeSec"] = 79.0
+    recent = race_state.recent_laps_at(laps, 12, "VER")
+    assert len(recent) == config.RECENT_LAPS and (recent == 80.0).all()

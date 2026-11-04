@@ -74,11 +74,11 @@ def main() -> None:
     with tab_predictor:
         run_tab(predictor.render, session)
     with tab_forecast:
-        run_tab(forecast.render, session)
+        run_tab(forecast.render, session, driver_1, driver_2, lap_n)
     with tab_bayes:
         run_tab(bayes.render, session)
     with tab_pit:
-        run_tab(pit_safety.render, session)
+        run_tab(pit_safety.render, session, driver_1, lap_n)
 
     theme.show_footer()
 

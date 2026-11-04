@@ -161,8 +161,9 @@ def tyre_figure(clean_laps: pd.DataFrame, fits: pd.DataFrame, drivers: list[str]
     return fig
 
 
-def gap_fan_figure(summary: overtake.GapSummary, chaser: str, leader: str) -> go.Figure:
-    laps = list(range(1, len(summary.median_gap) + 1))
+def gap_fan_figure(summary: overtake.GapSummary, chaser: str, leader: str, first_lap: int = 0) -> go.Figure:
+    """Simulated gap from the end of ``first_lap`` onwards, on real lap numbers."""
+    laps = list(range(first_lap + 1, first_lap + len(summary.median_gap) + 1))
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
@@ -186,7 +187,7 @@ def gap_fan_figure(summary: overtake.GapSummary, chaser: str, leader: str) -> go
         template=TEMPLATE,
         height=440,
         hovermode="x unified",
-        xaxis_title="Laps from now",
+        xaxis_title="Lap",
         yaxis_title=f"Gap {chaser} to {leader} (s)",
     )
     return fig
