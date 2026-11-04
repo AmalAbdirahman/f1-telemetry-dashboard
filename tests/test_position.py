@@ -98,3 +98,24 @@ def test_laps_without_a_compound_or_position_are_excluded():
     dataset = position.build_dataset(laps, horizon=3)
     assert dataset[["CompoundCode", "Position", "Target"]].notna().all().all()
     assert dataset[dataset["Driver"] == "D0"]["LapNumber"].min() > 2
+
+
+# ── Fix 2: at lap N the model only learns from outcomes known by lap N ───
+
+def test_regression_model_at_lap_n_never_sees_later_outcomes():
+    laps = race_laps()
+    lap_n = 40
+    first = position.train_and_evaluate(position.build_dataset(laps), known_by=lap_n)
+    shuffled = laps.copy()
+    later = shuffled["LapNumber"] > lap_n
+    shuffled.loc[later, "Position"] = 11 - shuffled.loc[later, "Position"]
+    second = position.train_and_evaluate(position.build_dataset(shuffled), known_by=lap_n)
+    assert (first.mae, first.baseline_mae, first.n_train, first.n_test) == (
+        second.mae, second.baseline_mae, second.n_train, second.n_test
+    )
+    assert first.cut_lap + config.PREDICTION_HORIZON <= lap_n
+    assert (first.test["LapNumber"] + config.PREDICTION_HORIZON).max() <= lap_n
+
+
+def test_too_early_in_the_race_gives_no_model():
+    assert position.train_and_evaluate(position.build_dataset(race_laps()), known_by=6) is None

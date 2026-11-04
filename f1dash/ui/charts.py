@@ -36,8 +36,16 @@ pio.templates[TEMPLATE] = go.layout.Template(
         "font": {"family": FONT, "color": config.TEXT},
         "xaxis": _axis(),
         "yaxis": _axis(),
-        "legend": {"orientation": "h", "y": 1.02, "yanchor": "bottom", "x": 0, "bgcolor": "rgba(0,0,0,0)"},
-        "margin": {"l": 56, "r": 16, "t": 48, "b": 48},
+        # Legends sit under the chart, where they never cover data or labels and wrap on a phone.
+        "legend": {
+            "orientation": "h",
+            "yref": "container",
+            "y": 0,
+            "yanchor": "bottom",
+            "x": 0,
+            "bgcolor": "rgba(0,0,0,0)",
+        },
+        "margin": {"l": 56, "r": 16, "t": 40, "b": 48},
         "hoverlabel": {"bgcolor": config.SURFACE_2, "bordercolor": config.BORDER},
     }
 )
@@ -107,8 +115,14 @@ def telemetry_figure(lap_1, lap_2, style_1: DriverStyle, style_2: DriverStyle) -
     return fig
 
 
-def tyre_figure(clean_laps: pd.DataFrame, fits: pd.DataFrame, drivers: list[str]) -> go.Figure:
-    """Fuel-corrected pace against tyre age, one panel per driver."""
+def tyre_figure(
+    clean_laps: pd.DataFrame, fits: pd.DataFrame, drivers: list[str], y_range: tuple[float, float] | None = None
+) -> go.Figure:
+    """Fuel-corrected pace against tyre age, one panel per driver.
+
+    The tab draws one figure per driver in columns, so they stack on a phone;
+    ``y_range`` keeps the separate figures on the same scale.
+    """
     fig = make_subplots(rows=1, cols=len(drivers), shared_yaxes=True, subplot_titles=drivers, horizontal_spacing=0.04)
     shown = set()
     for column, driver in enumerate(drivers, start=1):
@@ -149,12 +163,15 @@ def tyre_figure(clean_laps: pd.DataFrame, fits: pd.DataFrame, drivers: list[str]
             )
         fig.update_xaxes(title_text="Tyre age (laps)", row=1, col=column)
     fig.update_yaxes(title_text="Fuel-corrected lap (s)", row=1, col=1)
-    fig.update_layout(template=TEMPLATE, height=460)
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range))
+    fig.update_layout(template=TEMPLATE, height=420)
     return fig
 
 
-def gap_fan_figure(summary: overtake.GapSummary, chaser: str, leader: str) -> go.Figure:
-    laps = list(range(1, len(summary.median_gap) + 1))
+def gap_fan_figure(summary: overtake.GapSummary, chaser: str, leader: str, first_lap: int = 0) -> go.Figure:
+    """Simulated gap from the end of ``first_lap`` onwards, on real lap numbers."""
+    laps = list(range(first_lap + 1, first_lap + len(summary.median_gap) + 1))
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
@@ -178,7 +195,7 @@ def gap_fan_figure(summary: overtake.GapSummary, chaser: str, leader: str) -> go
         template=TEMPLATE,
         height=440,
         hovermode="x unified",
-        xaxis_title="Laps from now",
+        xaxis_title="Lap",
         yaxis_title=f"Gap {chaser} to {leader} (s)",
     )
     return fig
@@ -236,4 +253,123 @@ def rejoin_figure(x, y, clearance: float, rival: str) -> go.Figure:
         annotation_position="top right",
     )
     fig.update_layout(template=TEMPLATE, height=400, xaxis_title="Gap after the stop (s)", yaxis_title="Density")
+    return fig
+
+
+# Applied on top of a figure's own layout on phones (see ui/layout.py).
+PHONE_LAYOUT = {
+    "margin": {"l": 44, "r": 8, "t": 32, "b": 40},
+    "legend": {"font": {"size": 10}},
+    "font": {"size": 11},
+}
+
+NEUTRAL_FILL = {"SC": config.MEDIUM, "VSC": config.MEDIUM, "Red flag": config.SOFT}
+# Dark text on the light compounds, white on the dark ones.
+LETTER_COLOURS = {"SOFT": config.TEXT, "MEDIUM": config.BG, "HARD": config.BG, "INTERMEDIATE": config.BG, "WET": config.TEXT}
+
+
+def _mark_lap(fig: go.Figure, lap_n: int | None) -> None:
+    if lap_n is None:
+        return
+    fig.add_vline(
+        x=lap_n,
+        line={"color": config.HARD, "dash": "dot", "width": 1.5},
+        annotation_text=f"Lap {lap_n}",
+        annotation_position="top",
+        annotation_font={"color": config.HARD, "size": 11},
+    )
+
+
+def race_trace_figure(
+    trace: pd.DataFrame,
+    spans: pd.DataFrame,
+    drivers: pd.DataFrame,
+    highlight: tuple[str, str],
+    dashed: set[str],
+    reference: str,
+    lap_n: int | None,
+) -> go.Figure:
+    """Gap to the reference pace per lap; the two Face-Off drivers drawn bold."""
+    fig = go.Figure()
+    for span in spans.itertuples():
+        fig.add_vrect(
+            x0=span.First - 0.5,
+            x1=span.Last + 0.5,
+            fillcolor=_rgba(NEUTRAL_FILL[span.Label], 0.14),
+            line_width=0,
+            layer="below",
+            annotation_text=span.Label,
+            annotation_position="bottom left",
+            annotation_font={"color": NEUTRAL_FILL[span.Label], "size": 11},
+        )
+    colours = drivers.set_index("Driver")["TeamColor"]
+    order = [d for d in drivers["Driver"] if d not in highlight] + [d for d in highlight]
+    for driver in order:
+        own = trace[trace["Driver"] == driver]
+        if own.empty:
+            continue
+        bold = driver in highlight
+        colour = colours.get(driver, config.FALLBACK_TEAM_COLOR)
+        line = {"color": colour if bold else _rgba(colour, 0.45), "width": 3 if bold else 1.2}
+        line["dash"] = "dash" if driver in dashed else "solid"
+        fig.add_trace(
+            go.Scatter(
+                x=own["LapNumber"],
+                y=own["Behind"],
+                mode="lines",
+                name=driver,
+                legendgroup=driver,
+                line=line,
+                hovertemplate=f"{driver} · lap %{{x}}<br>%{{y:+.1f}} s<extra></extra>",
+            )
+        )
+        stops = own[own["PitInLap"]]
+        fig.add_trace(
+            go.Scatter(
+                x=stops["LapNumber"],
+                y=stops["Behind"],
+                mode="markers",
+                legendgroup=driver,
+                showlegend=False,
+                name=f"{driver} pit",
+                marker={"symbol": "circle-open", "size": 9 if bold else 6, "color": colour, "line": {"width": 2}},
+                hovertemplate=f"{driver} pits · lap %{{x}}<extra></extra>",
+            )
+        )
+    _mark_lap(fig, lap_n)
+    fig.update_yaxes(autorange="reversed", title_text=f"Seconds behind {reference}'s average pace")
+    fig.update_xaxes(title_text="Lap")
+    fig.update_layout(template=TEMPLATE, height=520, hovermode="closest")
+    return fig
+
+
+def strategy_figure(bars: pd.DataFrame, order: list[str], lap_n: int | None) -> go.Figure:
+    """One bar per driver, stints in compound colours with the compound's letter."""
+    fig = go.Figure()
+    for compound, group in bars.groupby("Compound", sort=False):
+        colour = config.COMPOUND_COLORS.get(compound, config.TEXT_DIM)
+        fig.add_trace(
+            go.Bar(
+                y=group["Driver"],
+                x=group["Last"] - group["First"] + 1,
+                base=group["First"] - 1,
+                orientation="h",
+                name=compound.title(),
+                marker={"color": colour, "line": {"color": config.BG, "width": 2}},
+                text=config.COMPOUND_LETTERS.get(compound, "?"),
+                textposition="inside",
+                insidetextanchor="middle",
+                textangle=0,
+                constraintext="none",
+                textfont={"color": LETTER_COLOURS.get(compound, config.BG), "family": FONT, "size": 12},
+                customdata=group[["First", "Last", "Stint"]],
+                hovertemplate="%{y} · stint %{customdata[2]}<br>Laps %{customdata[0]}–%{customdata[1]}<extra>"
+                + compound.title()
+                + "</extra>",
+            )
+        )
+    _mark_lap(fig, lap_n)
+    fig.update_yaxes(categoryorder="array", categoryarray=order[::-1], title_text=None)
+    fig.update_xaxes(title_text="Lap", rangemode="tozero")
+    fig.update_layout(template=TEMPLATE, barmode="overlay", height=max(260, 26 * len(order) + 110), bargap=0.25)
     return fig

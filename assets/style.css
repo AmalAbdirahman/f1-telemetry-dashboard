@@ -178,6 +178,10 @@
   [data-testid="stMetric"] {
     padding: 0.55rem 0.7rem;
   }
+  /* Phones are also detected server-side (ui/layout.py); this covers narrow desktop windows. */
+  .modebar-container {
+    display: none !important;
+  }
 }
 
 /* No motion for people who ask for none */

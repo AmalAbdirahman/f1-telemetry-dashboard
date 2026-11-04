@@ -10,6 +10,7 @@ import streamlit as st
 
 from f1dash import data
 from f1dash.models import degradation, position
+from f1dash.models import race_state as race_state_model
 
 HOUR = 3600
 
@@ -34,9 +35,14 @@ def stint_fits(clean_laps: pd.DataFrame) -> pd.DataFrame:
     return degradation.fit_all_stints(clean_laps)
 
 
-@st.cache_data(ttl=HOUR, max_entries=6, show_spinner=False)
-def position_model(laps: pd.DataFrame) -> position.Evaluation | None:
-    return position.train_and_evaluate(position.build_dataset(laps))
+@st.cache_data(ttl=HOUR, max_entries=64, show_spinner=False)
+def race_state(laps: pd.DataFrame, lap_n: int) -> pd.DataFrame:
+    return race_state_model.race_state(laps, lap_n)
+
+
+@st.cache_data(ttl=HOUR, max_entries=32, show_spinner=False)  # One model per race lap.
+def position_model(laps: pd.DataFrame, lap_n: int) -> position.Evaluation | None:
+    return position.train_and_evaluate(position.build_dataset(laps), known_by=lap_n)
 
 
 def keep_valid(key: str, options: list) -> None:

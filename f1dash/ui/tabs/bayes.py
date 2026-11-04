@@ -4,7 +4,7 @@ import streamlit as st
 
 from f1dash import data
 from f1dash.models import pace
-from f1dash.ui import charts, formatting
+from f1dash.ui import charts, formatting, layout
 
 
 def render(session: data.Session) -> None:
@@ -33,7 +33,7 @@ def render(session: data.Session) -> None:
     estimate.metric("Posterior mean", formatting.lap_time(result.posterior.mean))
     interval.metric("90% credible interval", f"±{1.645 * result.posterior.sd:.3f} s")
     used.metric("Average of laps seen", formatting.lap_time(sample_mean))
-    st.plotly_chart(charts.pace_figure(result, driver, n), width="stretch", key=f"pace_{key}")
+    layout.chart(charts.pace_figure(result, driver, n), key=f"pace_{key}")
     st.caption(
         "Prior in use: the field in this session "
         f"(mean {formatting.lap_time(prior.mean)}, SD {prior.sd:.3f} s). Lap times are fuel-corrected."
