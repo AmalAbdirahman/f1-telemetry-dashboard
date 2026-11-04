@@ -1,3 +1,6 @@
+
+
+
 # Formula 1 Telemetry & Strategy Dashboard
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://formula1-telemetry-dashboard.streamlit.app/)
@@ -10,6 +13,7 @@
 
 A Streamlit app that compares two drivers' laps and then tests the strategy behind them with statistical models: tyre degradation, Monte Carlo overtake simulation, Bayesian pace and pit-exit safety, plus a small position predictor that is always scored against a naive baseline.
 
+https://github.com/user-attachments/assets/57b4cff2-afd4-4e26-bcff-bbb48859f166
 Data comes from [OpenF1](https://openf1.org), a free, unofficial API covering 2023 onwards. This project is not associated with Formula 1.
 
 ## Features
