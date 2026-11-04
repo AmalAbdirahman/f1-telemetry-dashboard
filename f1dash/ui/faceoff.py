@@ -5,7 +5,7 @@ import streamlit as st
 from f1dash import data
 from f1dash.models import telemetry
 from f1dash.openf1 import OpenF1Error
-from f1dash.ui import charts, formatting, state, theme
+from f1dash.ui import charts, formatting, layout, state, theme
 
 
 def _pick_lap(session: data.Session, driver: str, lap_number: int | None):
@@ -80,11 +80,7 @@ def render(session: data.Session) -> None:
     st.caption(f"{formatting.who_gained(gap, driver_1, driver_2)} by {abs(gap):.3f} s over the lap.")
 
     styles = charts.driver_styles(session.drivers, driver_1, driver_2)
-    st.plotly_chart(
-        charts.telemetry_figure(tel_1, tel_2, *styles),
-        width="stretch",
-        key=f"telemetry_{session.key}",
-    )
+    layout.chart(charts.telemetry_figure(tel_1, tel_2, *styles), key=f"telemetry_{session.key}")
     _show_sectors(lap_1, lap_2, driver_1, driver_2)
 
     with st.expander("Method"):
