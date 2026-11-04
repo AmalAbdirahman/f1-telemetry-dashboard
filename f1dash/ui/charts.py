@@ -115,8 +115,14 @@ def telemetry_figure(lap_1, lap_2, style_1: DriverStyle, style_2: DriverStyle) -
     return fig
 
 
-def tyre_figure(clean_laps: pd.DataFrame, fits: pd.DataFrame, drivers: list[str]) -> go.Figure:
-    """Fuel-corrected pace against tyre age, one panel per driver."""
+def tyre_figure(
+    clean_laps: pd.DataFrame, fits: pd.DataFrame, drivers: list[str], y_range: tuple[float, float] | None = None
+) -> go.Figure:
+    """Fuel-corrected pace against tyre age, one panel per driver.
+
+    The tab draws one figure per driver in columns, so they stack on a phone;
+    ``y_range`` keeps the separate figures on the same scale.
+    """
     fig = make_subplots(rows=1, cols=len(drivers), shared_yaxes=True, subplot_titles=drivers, horizontal_spacing=0.04)
     shown = set()
     for column, driver in enumerate(drivers, start=1):
@@ -157,7 +163,9 @@ def tyre_figure(clean_laps: pd.DataFrame, fits: pd.DataFrame, drivers: list[str]
             )
         fig.update_xaxes(title_text="Tyre age (laps)", row=1, col=column)
     fig.update_yaxes(title_text="Fuel-corrected lap (s)", row=1, col=1)
-    fig.update_layout(template=TEMPLATE, height=460)
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range))
+    fig.update_layout(template=TEMPLATE, height=420)
     return fig
 
 

@@ -64,21 +64,21 @@ def main() -> None:
     driver_2 = st.session_state[f"driver_2_{session.key}"]
     lap_n = race_lap.render(session)
 
-    tab_race, tab_tyres, tab_predictor, tab_forecast, tab_bayes, tab_pit = st.tabs(
-        ["Race", "Tyres", "Position Predictor", "Overtake Forecast", "Bayesian Pace", "Pit Safety"]
+    tab_race, tab_pit, tab_tyres, tab_forecast, tab_bayes, tab_predictor = st.tabs(
+        ["Race", "Pit Safety", "Tyres", "Overtake Forecast", "Bayesian Pace", "Position Predictor"]
     )
     with tab_race:
         run_tab(race.render, session, driver_1, driver_2, lap_n)
+    with tab_pit:
+        run_tab(pit_safety.render, session, driver_1, lap_n)
     with tab_tyres:
         run_tab(tyres.render, session, driver_1, driver_2)
-    with tab_predictor:
-        run_tab(predictor.render, session)
     with tab_forecast:
         run_tab(forecast.render, session, driver_1, driver_2, lap_n)
     with tab_bayes:
         run_tab(bayes.render, session)
-    with tab_pit:
-        run_tab(pit_safety.render, session, driver_1, lap_n)
+    with tab_predictor:
+        run_tab(predictor.render, session, driver_1, lap_n)
 
     theme.show_footer()
 

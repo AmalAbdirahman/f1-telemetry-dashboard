@@ -4,7 +4,7 @@ import streamlit as st
 
 from f1dash import config, data
 from f1dash.models import degradation
-from f1dash.ui import charts, state
+from f1dash.ui import charts, layout, state
 
 LOSS_TARGET_S = 1.0
 
@@ -20,7 +20,13 @@ def render(session: data.Session, driver_1: str, driver_2: str) -> None:
 
     columns = ["Driver", "Stint", "Compound", "LapNumber", "LapTimeSec", "TyreLife"]
     fits = state.stint_fits(clean[columns])
-    st.plotly_chart(charts.tyre_figure(clean, fits, drivers), width="stretch", key=f"tyres_{session.key}")
+    pace = degradation.fuel_corrected(clean)
+    pad = 0.05 * (pace.max() - pace.min()) + 0.1
+    y_range = (pace.min() - pad, pace.max() + pad)
+    # One figure per driver in columns: side by side on a laptop, stacked on a phone.
+    for column, driver in zip(st.columns(2), drivers):
+        with column:
+            layout.chart(charts.tyre_figure(clean, fits, [driver], y_range), key=f"tyres_{session.key}_{driver}")
 
     if fits.empty:
         st.info(f"No stint has the {config.MIN_STINT_LAPS} clean laps needed for a fit, which is usual outside races.")
@@ -32,8 +38,11 @@ def render(session: data.Session, driver_1: str, driver_2: str) -> None:
         Interval=[f"{low:+.3f} to {high:+.3f}" for low, high in zip(fits["CILow"], fits["CIHigh"])],
         LapsToLose=[degradation.laps_to_lose(slope, LOSS_TARGET_S) for slope in fits["Slope"]],
     )
+    shown = ["Driver", "Stint", "Compound", "Slope", "Interval", "R2", "RMSE", "Laps", "LapsToLose"]
+    if layout.is_phone():
+        shown = ["Driver", "Compound", "Slope", "Laps"]
     st.dataframe(
-        table[["Driver", "Stint", "Compound", "Slope", "Interval", "R2", "RMSE", "Laps", "LapsToLose"]],
+        table[shown],
         hide_index=True,
         width="stretch",
         column_config={

@@ -4,12 +4,12 @@ import streamlit as st
 
 from f1dash import config, data
 from f1dash.models import position
-from f1dash.ui import state
+from f1dash.ui import formatting, state
 
 
-def render(session: data.Session) -> None:
+def render(session: data.Session, driver_1: str, lap_n: int | None) -> None:
     st.markdown(f"Predicts a driver's position {config.PREDICTION_HORIZON} laps ahead, scored against simply assuming nothing changes.")
-    if not session.is_race:
+    if not session.is_race or lap_n is None:
         st.info("Positions only mean something in a race or sprint. Pick one of those to use this tab.")
         return
 
@@ -33,19 +33,34 @@ def render(session: data.Session) -> None:
             "number below. Positions rarely change over a few laps, which makes that baseline hard to beat."
         )
 
-    last_lap = int(session.laps["LapNumber"].max())
+    snapshot = state.race_state(session.laps, lap_n)
+    known = snapshot[snapshot["Compound"].isin(config.COMPOUND_CODES) & snapshot["TyreLife"].notna()]
+    if known.empty:
+        st.info(f"No car has tyre data at lap {lap_n}.")
+        return
+    names = known["Driver"].tolist()
+    key = session.key
+    driver = st.selectbox("Driver", names, index=names.index(driver_1) if driver_1 in names else 0, key=f"pred_driver_{key}")
+    now = known.set_index("Driver").loc[driver]
     field = len(session.drivers)
     compounds = sorted(set(session.laps["Compound"]) & set(config.COMPOUND_CODES))
-    key = session.key
-    first, second = st.columns(2)
-    lap = first.slider("Current lap", 1, last_lap, min(20, last_lap), key=f"pred_lap_{key}")
-    tyre_life = second.slider("Tyre age (laps)", 1, 60, 15, key=f"pred_age_{key}")
-    third, fourth = st.columns(2)
-    current = third.slider("Current position", 1, field, min(5, field), key=f"pred_pos_{key}")
-    compound = fourth.selectbox("Compound", compounds, key=f"pred_compound_{key}")
 
-    predicted = position.predict(evaluation, lap, tyre_life, current, compound, field)
-    st.metric(f"Predicted position in {config.PREDICTION_HORIZON} laps", f"P{predicted:.1f}", f"Now P{current}", delta_color="off", delta_arrow="off")
+    # Start from the driver's real state at lap N; keys carry the context so a what-if resets with it.
+    context = f"{key}_{lap_n}_{driver}"
+    with st.expander(f"Inputs, from {driver} at the end of lap {lap_n}"):
+        first, second = st.columns(2)
+        tyre_life = first.slider("Tyre age (laps)", 1, 80, int(now["TyreLife"]), key=f"pred_age_{context}")
+        current = second.slider("Current position", 1, field, int(now["Position"]), key=f"pred_pos_{context}")
+        compound = st.selectbox("Compound", compounds, index=compounds.index(now["Compound"]), key=f"pred_compound_{context}")
+
+    predicted = position.predict(evaluation, lap_n, tyre_life, current, compound, field)
+    st.metric(
+        f"Predicted position after lap {lap_n + config.PREDICTION_HORIZON}",
+        formatting.position(predicted),
+        f"Now P{current} · raw model output {predicted:.1f}",
+        delta_color="off",
+        delta_arrow="off",
+    )
 
     with st.expander("Method"):
         st.markdown(

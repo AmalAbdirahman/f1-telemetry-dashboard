@@ -41,11 +41,15 @@ def all_text(app):
 def test_race_renders_every_tab():
     app = run_app()
     assert_healthy(app)
-    assert len(app.tabs) == 6
+    assert [t.label for t in app.tabs] == [
+        "Race", "Pit Safety", "Tyres", "Overtake Forecast", "Bayesian Pace", "Position Predictor"
+    ]
     assert len(app.dataframe) >= 2  # Order at lap N and the degradation table.
     labels = [m.label for m in app.metric]
     assert "Model error (MAE)" in labels and "Baseline error (MAE)" in labels
     assert "Ahead at any point" in labels and "Posterior mean" in labels
+    predicted = next(m for m in app.metric if m.label.startswith("Predicted position"))
+    assert predicted.value.startswith("P") and "." not in predicted.value
     assert any(label.startswith("Rejoins ahead of") for label in labels)
     assert any(label.startswith("Rejoin if pitting on lap") for label in labels)
 
