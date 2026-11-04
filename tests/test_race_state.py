@@ -128,3 +128,41 @@ def test_recent_laps_at_lap_n_ignore_later_laps():
     laps.loc[laps["LapNumber"] > 12, "LapTimeSec"] = 79.0
     recent = race_state.recent_laps_at(laps, 12, "VER")
     assert len(recent) == config.RECENT_LAPS and (recent == 80.0).all()
+
+
+# ── Fix 1: pace comes from the current set of tyres ─────────────────────
+
+def race_with_faster_second_stint():
+    laps = make_race({"VER": 80.0, "LEC": 80.5}, n_laps=20, stop={"VER": 8})
+    later = (laps["Driver"] == "VER") & (laps["LapNumber"] > 9)
+    laps.loc[later, "LapTimeSec"] -= 1.0
+    return laps
+
+
+def test_recent_pace_uses_the_current_stint_once_it_has_enough_laps():
+    laps = race_with_faster_second_stint()
+    # Out-lap 9 is not clean, so by lap 16 the new set has laps 10-16: seven clean laps.
+    ver = race_state.race_state(laps, 16).set_index("Driver").loc["VER"]
+    assert ver["RecentPace"] == pytest.approx(79.0)
+    assert ver["RecentLaps"] == 7 and ver["PaceFromStint"]
+
+
+def test_recent_pace_falls_back_to_earlier_laps_on_a_new_set():
+    laps = race_with_faster_second_stint()
+    # By lap 12 the new set has only 3 clean laps, fewer than MIN_RECENT_LAPS.
+    ver = race_state.race_state(laps, 12).set_index("Driver").loc["VER"]
+    assert not ver["PaceFromStint"]
+    # Laps 8 and 9 are the in- and out-lap, so laps 2-7 and 10-12 are clean.
+    assert ver["RecentLaps"] == 9
+    assert len(race_state.recent_laps_at(laps, 16, "VER")) == 7
+
+
+# ── Fix 3: is lap N neutralised? ─────────────────────────────────────────
+
+def test_status_at_lap_n_reads_only_that_lap():
+    laps = make_race({"A": 80.0, "B": 80.5, "C": 81.0}, n_laps=10)
+    laps.loc[laps["LapNumber"] == 6, "TrackStatus"] = "4"
+    laps.loc[laps["LapNumber"] == 8, "TrackStatus"] = "6"
+    assert race_state.neutralised_at(laps, 5) is None
+    assert race_state.neutralised_at(laps, 6) == "SC"
+    assert race_state.neutralised_at(laps, 8) == "VSC"

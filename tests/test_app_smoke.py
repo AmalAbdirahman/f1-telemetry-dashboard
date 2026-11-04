@@ -156,3 +156,26 @@ def test_early_laps_are_explained_not_simulated():
     app.slider(key=f"race_lap_{fake_openf1.RACE_KEY}").set_value(3).run()
     assert_healthy(app)
     assert "too few to judge pace" in all_text(app)
+
+
+def test_pit_loss_switches_to_safety_car_stops_under_a_safety_car():
+    # The fake safety car covers laps 14-15, and NOR stopped under it on laps 14-15.
+    app = run_app()
+    assert_healthy(app)
+    assert "safety-car stop" in all_text(app)
+    app.slider(key=f"race_lap_{fake_openf1.RACE_KEY}").set_value(20).run()
+    assert_healthy(app)
+    text = all_text(app)
+    assert "green-flag stop" in text and "safety-car stop" not in text
+
+
+def test_pit_window_starts_on_the_next_lap():
+    app = run_app()
+    assert any(m.label == "Rejoin if pitting on lap 16" for m in app.metric)
+
+
+def test_predictor_waits_for_known_outcomes_early_in_the_race():
+    app = run_app()
+    app.slider(key=f"race_lap_{fake_openf1.RACE_KEY}").set_value(6).run()
+    assert_healthy(app)
+    assert "too few laps with a known outcome" in all_text(app)

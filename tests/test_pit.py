@@ -136,8 +136,8 @@ def test_last_car_rejoins_last_with_nobody_behind():
     assert result.position == 2 and result.behind is None and np.isnan(result.gap_behind)
 
 
-def test_pit_window_projects_from_lap_n_only():
-    state = pd.DataFrame(
+def window_state():
+    return pd.DataFrame(
         {
             "Driver": ["A", "X", "B"],
             "GapToLeader": [0.0, 10.0, 25.0],
@@ -145,17 +145,98 @@ def test_pit_window_projects_from_lap_n_only():
             "Slope": [0.0, 0.0, 0.0],
         }
     )
-    window = pit.pit_window(state, "X", loss=20.0, clearance=1.0, lap_n=20, last_lap=27)
-    # No stop on the final lap.
-    assert window["PitLap"].tolist() == list(range(20, 27))
-    # After the stop X is 5 s behind B, and B is 1 s a lap slower.
-    assert window["Position"].tolist() == [3, 3, 3, 3, 3, 2, 2]
-    assert window["GapAhead"].iloc[0] == pytest.approx(5.0)
+
+
+def test_pit_window_starts_on_the_next_lap_and_compares_after_the_out_lap():
+    # Fix 4: at the end of lap N the next possible in-lap is N + 1, and the
+    # stop is judged when the out-lap (L + 1) is done.
+    window = pit.pit_window(window_state(), "X", loss=20.0, clearance=1.0, lap_n=20, last_lap=27)
+    assert window["PitLap"].tolist() == list(range(21, 27))
+    # Judged k = L + 1 − N laps on: X is 5 − k s behind B, as B is 1 s a lap slower.
+    assert window["Position"].tolist() == [3, 3, 3, 2, 2, 2]
+    assert window["GapAhead"].iloc[0] == pytest.approx(3.0)
     last = window.iloc[-1]
-    assert last["Behind"] == "B" and last["GapBehind"] == pytest.approx(1.0)
+    assert last["Behind"] == "B" and last["GapBehind"] == pytest.approx(2.0)
 
 
-def test_pit_window_is_at_most_ten_laps():
+def test_pit_window_offers_eleven_laps_at_most():
     state = pd.DataFrame({"Driver": ["A", "X"], "GapToLeader": [0.0, 3.0], "RecentPace": [80.0, 80.0], "Slope": [0.0, 0.0]})
     window = pit.pit_window(state, "X", loss=20.0, clearance=1.0, lap_n=5, last_lap=60)
-    assert window["PitLap"].tolist() == list(range(5, 16))
+    assert window["PitLap"].tolist() == list(range(6, 17))
+
+
+def test_a_cheap_safety_car_stop_only_applies_to_the_next_lap():
+    # How long the safety car stays out is unknown at lap N, so later laps cost a green-flag stop.
+    window = pit.pit_window(window_state(), "X", loss=10.0, clearance=1.0, lap_n=20, last_lap=27, later_loss=20.0)
+    assert window["Loss"].tolist() == [10.0, 20.0, 20.0, 20.0, 20.0, 20.0]
+    # k = 2: X is 10 + 160 + 10 = 180 against B's 25 + 162 = 187, so X comes out ahead of B.
+    assert window["Position"].iloc[0] == 2
+    assert window["Position"].iloc[1] == 3
+
+
+# ── Fix 5: a car close behind on a cold-tyre out-lap is a threat ─────────
+
+def test_a_car_close_behind_on_the_road_is_flagged():
+    clock = pd.Series({"A": 0.0, "X": 5.0, "B": 25.6})
+    result = pit.rejoin(clock, "X", loss=20.0, lap_time=80.0, clearance=1.0)
+    assert result.clean_air  # A is 25 s up the road.
+    assert result.road_behind == "B" and result.road_gap_behind == pytest.approx(0.6)
+    assert result.under_pressure and not result.clear
+
+
+def test_clear_needs_room_both_ways():
+    clock = pd.Series({"A": 0.0, "X": 5.0, "B": 40.0})
+    result = pit.rejoin(clock, "X", loss=20.0, lap_time=80.0, clearance=1.0)
+    assert result.clean_air and not result.under_pressure and result.clear
+
+
+def test_window_flags_pressure_from_behind():
+    window = pit.pit_window(window_state(), "X", loss=20.0, clearance=1.0, lap_n=20, last_lap=27)
+    # At L = 25 (k = 6) X rejoins exactly 1 s ahead of B: not more than the clearance.
+    assert window.set_index("PitLap").loc[25, "UnderPressure"]
+    assert not window.set_index("PitLap").loc[26, "UnderPressure"]
+
+
+# ── Fix 3: stops under a safety car are measured against the field ───────
+
+def sc_race():
+    """Two cars; on laps 10-11 a safety car makes every lap 30 s slower."""
+    rows = []
+    for driver, stop in (("VER", None), ("LEC", 10), ("NOR", 3)):
+        for lap in range(2, 21):
+            slow = 30.0 if lap in (10, 11) else 0.0
+            time = 80.0 + slow
+            if lap == stop:
+                time += 4.0
+            if stop is not None and lap == stop + 1:
+                time += 6.0
+            rows.append(
+                {
+                    "Driver": driver,
+                    "Stint": 1.0 if stop is None or lap <= stop else 2.0,
+                    "LapNumber": float(lap),
+                    "LapTimeSec": time,
+                    "TrackStatus": "4" if slow else "1",
+                    "PitInLap": lap == stop,
+                    "PitOutLap": stop is not None and lap == stop + 1,
+                    "IsAccurate": True,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def test_safety_car_stop_loss_is_relative_to_the_field_on_those_laps():
+    estimate = pit.estimate_neutralised_pit_loss(sc_race())
+    # LEC lost 4 + 6 s against VER on the same two safety-car laps.
+    assert estimate.n == 1 and estimate.mean == pytest.approx(10.0)
+    # The green-flag formula would have called it 70 s, and it ignores the stop.
+    green = pit.estimate_pit_loss(sc_race(), data.clean_laps(sc_race()))
+    assert green.n == 1 and green.mean == pytest.approx(10.0)  # NOR's green stop on lap 3
+
+
+def test_loss_under_a_safety_car_uses_safety_car_stops():
+    laps = sc_race()
+    estimate, before_n = pit.loss_known_at(laps, 15, neutralised=True)
+    assert before_n and estimate.mean == pytest.approx(10.0)
+    estimate, before_n = pit.loss_known_at(laps, 9, neutralised=True)
+    assert estimate.n == 1 and not before_n  # Only the later SC stop exists: flagged.

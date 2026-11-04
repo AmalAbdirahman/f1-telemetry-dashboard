@@ -12,6 +12,11 @@ ahead. Under a safety car every lap is slow, so the estimate stays consistent.
 Every input is first cut to laps 1..N, including the clean-lap filter, whose
 107% threshold is relative to a stint median. Nothing after lap N can leak in.
 
+Recent pace is taken from the current set of tyres, because a fresh set can be
+a second a lap different. Until the set has MIN_RECENT_LAPS clean laps, the
+last RECENT_LAPS clean laps of any stint are used instead (``PaceFromStint``
+says which).
+
 Assumptions in ``project_clock``:
 - Each car keeps its recent mean pace plus its current tyre trend, as in the
   overtake simulation. Pit stops, safety cars and traffic in the projected
@@ -29,8 +34,12 @@ from f1dash.models.filters import clean_laps
 COLUMNS = [
     "Driver", "Position", "GapToLeader", "LapsDown", "Interval", "IntervalLapsDown",
     "Compound", "TyreLife", "Stint", "Stops", "InPitLane",
-    "RecentPace", "RecentSD", "RecentLaps", "Slope", "SlopeLaps",
+    "RecentPace", "RecentSD", "RecentLaps", "PaceFromStint", "Slope", "SlopeLaps",
 ]
+
+# Track status codes from the timing feed, most serious first.
+NEUTRALISED = (("5", "Red flag"), ("4", "SC"), ("6", "VSC"))
+MAJORITY = 0.5  # Share of cars whose lap must overlap a status for the lap to count.
 
 
 def laps_up_to(laps: pd.DataFrame, lap_n: int) -> pd.DataFrame:
@@ -49,10 +58,29 @@ def last_timed_lap(laps: pd.DataFrame) -> int:
     return int(timed.index.max()) if not timed.empty else 0
 
 
-def recent_laps(clean: pd.DataFrame, driver: str, window: int = config.RECENT_LAPS) -> np.ndarray:
-    """A driver's last ``window`` clean lap times, oldest first."""
+def recent_laps(clean: pd.DataFrame, driver: str, stint=None, window: int = config.RECENT_LAPS) -> tuple[np.ndarray, bool]:
+    """A driver's last ``window`` clean lap times, oldest first, and whether they are all from ``stint``.
+
+    The current stint is used once it has MIN_RECENT_LAPS clean laps; before
+    that, recent laps from any stint stand in.
+    """
     own = clean[clean["Driver"] == driver].sort_values("LapNumber")
-    return own["LapTimeSec"].to_numpy(float)[-window:]
+    if stint is not None and not pd.isna(stint):
+        on_set = own[own["Stint"] == stint]
+        if len(on_set) >= config.MIN_RECENT_LAPS:
+            return on_set["LapTimeSec"].to_numpy(float)[-window:], True
+    return own["LapTimeSec"].to_numpy(float)[-window:], False
+
+
+def neutralised_at(laps: pd.DataFrame, lap_n: int) -> str | None:
+    """'Red flag', 'SC' or 'VSC' if most cars' lap N overlapped it, else None."""
+    codes = laps.loc[laps["LapNumber"] == lap_n, "TrackStatus"]
+    if codes.empty:
+        return None
+    for code, label in NEUTRALISED:
+        if codes.str.contains(code, regex=False).mean() > MAJORITY:
+            return label
+    return None
 
 
 def laps_down(gap: float, reference_lap: float) -> int:
@@ -89,7 +117,7 @@ def race_state(laps: pd.DataFrame, lap_n: int) -> pd.DataFrame:
     for index, lap in enumerate(at_n.itertuples(index=False)):
         gap = (lap.LapEnd - leader.LapEnd).total_seconds()
         interval = np.nan if previous is None else (lap.LapEnd - previous.LapEnd).total_seconds()
-        recent = recent_laps(clean, lap.Driver)
+        recent, from_stint = recent_laps(clean, lap.Driver, lap.Stint)
         slope, slope_laps = _current_slope(clean, lap.Driver, lap.Stint)
         rows.append(
             {
@@ -107,6 +135,7 @@ def race_state(laps: pd.DataFrame, lap_n: int) -> pd.DataFrame:
                 "RecentPace": float(recent.mean()) if len(recent) else np.nan,
                 "RecentSD": float(recent.std(ddof=1)) if len(recent) > 1 else np.nan,
                 "RecentLaps": len(recent),
+                "PaceFromStint": from_stint,
                 "Slope": slope,
                 "SlopeLaps": slope_laps,
             }
@@ -130,5 +159,8 @@ def project_clock(state: pd.DataFrame, laps_ahead: int) -> pd.Series:
 
 
 def recent_laps_at(laps: pd.DataFrame, lap_n: int, driver: str, window: int = config.RECENT_LAPS) -> np.ndarray:
-    """A driver's last ``window`` clean lap times by the end of lap N."""
-    return recent_laps(clean_laps(laps_up_to(laps, lap_n)), driver, window)
+    """A driver's recent clean lap times by the end of lap N, from the tyres they had on at lap N."""
+    seen = laps_up_to(laps, lap_n)
+    at_n = seen[(seen["Driver"] == driver) & (seen["LapNumber"] == lap_n)]
+    stint = at_n["Stint"].iloc[0] if not at_n.empty else None
+    return recent_laps(clean_laps(seen), driver, stint, window)[0]

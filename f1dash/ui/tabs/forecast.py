@@ -105,7 +105,7 @@ def render(session: data.Session, driver_1: str, driver_2: str, lap_n: int | Non
         return f"{driver} {formatting.lap_time(form.mean)} (n = {form.n}, σ = {form.sd:.2f} s, {trend})"
 
     st.caption(
-        f"Pace from the last clean laps up to lap {lap_n}: {describe(chaser, form_chaser, measured['slope_chaser'])}; "
+        f"Pace from the last clean laps on each car's current tyres, up to lap {lap_n}: {describe(chaser, form_chaser, measured['slope_chaser'])}; "
         f"{describe(leader, form_leader, measured['slope_leader'])}. ρ estimated as {measured['rho']:.2f}."
     )
 
@@ -113,7 +113,8 @@ def render(session: data.Session, driver_1: str, driver_2: str, lap_n: int | Non
         st.markdown(
             f"Everything starts from the end of lap {lap_n} and uses nothing later. The gap is the difference "
             "between the two cars' line crossings on that lap. Each driver's future lap k is their recent mean "
-            f"(last {config.RECENT_LAPS} clean laps at most) plus their current stint's tyre trend × k, plus an "
+            f"(last {config.RECENT_LAPS} clean laps at most, on the current tyres once they have "
+            f"{config.MIN_RECENT_LAPS}) plus their current stint's tyre trend × k, plus an "
             "AR(1) deviation so that good and bad laps come in runs. The trend needs "
             f"{config.MIN_STINT_LAPS} clean laps on the current tyres, otherwise it is zero. "
             "The gap after n laps is gap₀ + Σ(chaser lap − leader lap), and the chaser is ahead once it is "

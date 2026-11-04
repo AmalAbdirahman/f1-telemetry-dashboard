@@ -4,6 +4,10 @@ The model trains on earlier laps of the same race and is scored on later laps.
 Tree models cannot extrapolate, so LapNumber adds little in that later period,
 and the naive "position stays the same" baseline is often hard to beat. The
 result always carries that baseline so the UI can say which one won.
+
+On the pit wall at lap N, only outcomes up to lap N exist. ``known_by`` keeps
+just the rows whose target lap is N or earlier, then splits those by lap, so
+the model is trained and scored without any later lap.
 """
 
 from dataclasses import dataclass
@@ -59,8 +63,15 @@ def temporal_split(
     return train, test, cut
 
 
-def train_and_evaluate(dataset: pd.DataFrame) -> Evaluation | None:
-    """Fit the model and score it against the baseline, or None if data is thin."""
+def train_and_evaluate(
+    dataset: pd.DataFrame, known_by: int | None = None, horizon: int = config.PREDICTION_HORIZON
+) -> Evaluation | None:
+    """Fit the model and score it against the baseline, or None if data is thin.
+
+    With ``known_by`` = N, rows whose target lap is after N are dropped first.
+    """
+    if known_by is not None:
+        dataset = dataset[dataset["LapNumber"] + horizon <= known_by]
     if len(dataset) < config.MIN_DATASET_ROWS:
         return None
     train, test, cut = temporal_split(dataset)

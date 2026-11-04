@@ -20,7 +20,8 @@ def order_table(snapshot: pd.DataFrame, phone: bool) -> pd.DataFrame:
             "Tyre": [formatting.tyre(c, a) + (" · pit lap" if pit else "")
                      for c, a, pit in zip(snapshot["Compound"], snapshot["TyreLife"], snapshot["InPitLane"])],
             "Stops": snapshot["Stops"],
-            "Pace": [formatting.lap_time(p) if pd.notna(p) else "—" for p in snapshot["RecentPace"]],
+            "Pace": [(formatting.lap_time(p) + ("" if own_set else " *")) if pd.notna(p) else "—"
+                     for p, own_set in zip(snapshot["RecentPace"], snapshot["PaceFromStint"])],
             "Trend": [formatting.slope(v) for v in snapshot["Slope"]],
         }
     )
@@ -63,7 +64,11 @@ def render(session: data.Session, driver_1: str, driver_2: str, lap_n: int | Non
         hide_index=True,
         width="stretch",
         column_config={
-            "Pace": st.column_config.TextColumn("Recent pace", help=f"Mean of the last {config.RECENT_LAPS} clean laps at most."),
+            "Pace": st.column_config.TextColumn(
+                "Recent pace",
+                help=f"Mean of the last {config.RECENT_LAPS} clean laps on the current tyres. * means the set has "
+                f"fewer than {config.MIN_RECENT_LAPS} clean laps yet, so earlier laps are used.",
+            ),
             "Trend": st.column_config.TextColumn("Trend (s/lap)", help="Current stint's fuel-corrected slope."),
         },
     )

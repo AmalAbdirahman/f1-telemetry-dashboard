@@ -14,9 +14,12 @@ def render(session: data.Session, driver_1: str, lap_n: int | None) -> None:
         return
 
     columns = ["Driver", "LapNumber", "TyreLife", "Position", "Compound"]
-    evaluation = state.position_model(session.laps[columns])
+    evaluation = state.position_model(session.laps[columns], lap_n)
     if evaluation is None:
-        st.info("There are too few laps with position and tyre data to train and test a model here.")
+        st.info(
+            f"By lap {lap_n} there are too few laps with a known outcome to train and test a model. "
+            "Move the Race lap slider later."
+        )
         return
 
     model, baseline, verdict = st.columns(3)
@@ -24,8 +27,8 @@ def render(session: data.Session, driver_1: str, lap_n: int | None) -> None:
     baseline.metric("Baseline error (MAE)", f"{evaluation.baseline_mae:.2f} places")
     verdict.metric("Better on later laps", "Model" if evaluation.beats_baseline else "Baseline")
     st.caption(
-        f"Trained on {evaluation.n_train} laps up to lap {evaluation.cut_lap}, "
-        f"tested on {evaluation.n_test} laps after it."
+        f"Only outcomes known by lap {lap_n} are used: trained on {evaluation.n_train} laps up to lap "
+        f"{evaluation.cut_lap}, tested on {evaluation.n_test} laps after it."
     )
     if not evaluation.beats_baseline:
         st.warning(
@@ -66,8 +69,9 @@ def render(session: data.Session, driver_1: str, lap_n: int | None) -> None:
         st.markdown(
             "A gradient boosting regressor uses lap number, tyre age, current position and compound, all known "
             f"at prediction time. The target is the same driver's position {config.PREDICTION_HORIZON} laps "
-            "later, and laps with no known future are dropped. The split is by lap: the last "
-            f"{config.TEST_FRACTION:.0%} of the race is held out, and training rows whose target lands in that "
-            "period are removed. The baseline predicts the current position. The model sees one race only, and "
+            f"later, and laps with no known future are dropped. At lap {lap_n} only outcomes up to lap {lap_n} "
+            "exist, so rows whose target lap is later are removed first. The rest is split by lap: the last "
+            f"{config.TEST_FRACTION:.0%} is held out, and training rows whose target lands in that period are "
+            "removed. The baseline predicts the current position. The model sees one race only, and "
             "tree models cannot extrapolate, so lap number adds little on laps it never trained on."
         )

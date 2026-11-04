@@ -8,9 +8,7 @@ import pandas as pd
 
 from f1dash.models import race_state
 
-# Track status codes from the timing feed, most serious first.
-NEUTRALISED = (("5", "Red flag"), ("4", "SC"), ("6", "VSC"))
-MAJORITY = 0.5  # Share of cars whose lap must overlap a status for the lap to be shaded.
+NEUTRALISED, MAJORITY = race_state.NEUTRALISED, race_state.MAJORITY
 
 
 def reference_driver(drivers: pd.DataFrame, laps: pd.DataFrame) -> str | None:
