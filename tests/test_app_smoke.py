@@ -41,7 +41,8 @@ def all_text(app):
 def test_race_renders_every_tab():
     app = run_app()
     assert_healthy(app)
-    assert len(app.tabs) == 5
+    assert len(app.tabs) == 6
+    assert len(app.dataframe) >= 2  # Order at lap N and the degradation table.
     labels = [m.label for m in app.metric]
     assert "Model error (MAE)" in labels and "Baseline error (MAE)" in labels
     assert "Ahead at any point" in labels and "Safe rejoin" in labels and "Posterior mean" in labels
