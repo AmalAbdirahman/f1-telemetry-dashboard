@@ -1,23 +1,47 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/car-dark.gif">
+    <img src="assets/readme/car-light.gif" alt="An isometric drawing of a generic F1 car that comes apart into its assemblies" width="720">
+  </picture>
+</p>
 
+<h1 align="center">Formula 1 Telemetry &amp; Strategy Dashboard</h1>
 
+<p align="center"><b>A pit wall in your browser.</b> Pick a race and a lap, and every strategy tab sees only what was known at that moment, then tests the call with statistics.</p>
 
-# Formula 1 Telemetry & Strategy Dashboard
+<p align="center">
+  <a href="https://formula1-telemetry-dashboard.streamlit.app/"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Open the app on Streamlit"></a>
+  <a href="https://github.com/AmalAbdirahman/f1-telemetry-dashboard/actions/workflows/tests.yml"><img src="https://github.com/AmalAbdirahman/f1-telemetry-dashboard/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <img src="https://img.shields.io/badge/Python-3.13-blue" alt="Python 3.13">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT licence">
+</p>
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://formula1-telemetry-dashboard.streamlit.app/)
-[![Tests](https://github.com/AmalAbdirahman/f1-telemetry-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/AmalAbdirahman/f1-telemetry-dashboard/actions/workflows/tests.yml)
-![Python](https://img.shields.io/badge/Python-3.13-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
+<p align="center">
+  <a href="https://formula1-telemetry-dashboard.streamlit.app/"><b>🏁 Try the live app</b></a> ·
+  <a href="#-how-it-works">🧮 How it works</a> ·
+  <a href="#%EF%B8%8F-limitations">⚠️ Limitations</a> ·
+  <a href="https://amalabdirahman.github.io/AmalAbdirahman/">🌐 Portfolio</a>
+</p>
 
+---
 
+### 🏎️ What it does
 
+Choose a session and drag the lap slider to lap N. The app rebuilds the race exactly as it stood at the end of that lap (order, gaps, tyres, pace and wear) and nothing later can leak in. From there it asks the questions a strategist would:
 
-A Streamlit app that works like a pit wall. Pick a race and a lap, and the strategy tabs see only what was known at the end of that lap: the real order, gaps, tyres, pace and wear. From there they test the decisions with statistical models: pit-exit safety with a rejoin projector, tyre degradation, Monte Carlo overtake simulation and Bayesian pace, plus a small position predictor that is always scored against a naive baseline.
+- **Is it safe to pit now?** The chance of rejoining ahead of a rival, and where you would come out over the next 11 laps.
+- **How fast are the tyres going off?** Seconds lost per lap of tyre age, with a bootstrap 90% interval.
+- **Will the car behind get past?** 1,000 Monte Carlo races with correlated lap times.
+- **How quick is this driver really?** A Bayesian estimate from only a few laps.
+- **Where will they be in 3 laps?** A small model, always scored against a "nothing changes" baseline, which honestly still wins.
 
 https://github.com/user-attachments/assets/57b4cff2-afd4-4e26-bcff-bbb48859f166
 
 Data comes from [OpenF1](https://openf1.org), a free, unofficial API covering 2023 onwards. This project is not associated with Formula 1.
 
-## Features
+---
+
+### 📊 Features
 
 | Section | What it shows | Method |
 |---|---|---|
@@ -34,9 +58,34 @@ The strategy tabs fill in the gap, laps remaining, pace and tyre trend from the 
 
 Race-only tabs explain themselves in qualifying and practice. The sidebar offers finished sessions only, leaving out testing and cancelled events.
 
-## Method
+---
+
+### 🛞 Tyre wear, drawn
+
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/wheel-dark.gif">
+    <img src="assets/readme/wheel-light.gif" alt="An isometric tyre on a setup bench: a depth gauge sits in a wear hole and its needle turns as the tyre ages" width="100%">
+  </picture>
+    </td>
+    <td width="50%">
+      The <b>Tyres</b> tab measures how many seconds a lap each driver loses as their tyres age. This figure shows the idea physically: a depth gauge in a wear-indicator hole reads a shallower hole and a slower lap as the tyre gets older.<br><br>
+      <sub>The figure's numbers come from a toy model (the degradation rate grows a little each lap) and are illustrative. The app itself fits a straight line per stint; see <a href="#-how-it-works">How it works</a>.</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
+### 🧮 How it works
 
 Only representative laps feed the models: green-flag, not a pit lap, accurately timed, and within 107% of that driver's stint median.
+
+<details>
+<summary><b>Read the full method, with the maths</b> (lap table, race state, race trace, time delta, tyre model, overtake simulation, Bayesian pace, pit safety, rejoin projector, position predictor)</summary>
+<br>
 
 **Lap table.** OpenF1 serves separate tables, so `f1dash/data.py` rebuilds tyre age from stints, position from the position feed at the end of each lap, and track status from race-control messages.
 
@@ -96,7 +145,11 @@ with $T$ the field's median lap, and the rejoin is clear when the nearest car in
 
 **Position predictor.** A `GradientBoostingRegressor` uses lap number, tyre age, position and compound. The target is the same driver's position 3 laps later, and laps with no known future are dropped. At lap N only outcomes up to lap N exist, so rows whose target lap is later are removed first. The last 20% of what is left is held out, and training rows whose target lands in that period are removed. The inputs start from the chosen driver's state at lap N, and the result is shown as a whole position.
 
-## Limitations
+</details>
+
+---
+
+### ⚠️ Limitations
 
 - **The predictor loses to the baseline.** In five real races tested (2023 to 2026) "position stays the same" won every time, for example 0.29 places of error against 1.84 at the 2026 Mexico City Grand Prix. Positions rarely change over three laps, and the model sees a single race. The app says so whenever it happens.
 - **The fuel figure is a constant assumption.** Tyre age and lap number rise together within a stint, so 0.03 s/lap adds directly to every degradation slope. Compare slopes with each other instead of reading them as absolute figures.
@@ -108,7 +161,9 @@ with $T$ the field's median lap, and the rejoin is clear when the nearest car in
 - **Measured pit spread can be wide.** Slow stops and changing weather inflate it.
 - **Data limits.** Nothing before 2023, and OpenF1's free tier allows 30 requests a minute and locks data while a session is live. Rebuilt columns are close to, but not the same as, official timing.
 
-## Run it
+---
+
+### 🚀 Run it
 
 Requires Python 3.13.
 
@@ -121,7 +176,7 @@ streamlit run main.py
 
 No account or API key is needed.
 
-## Test it
+### 🧪 Test it
 
 ```bash
 pytest -q
@@ -129,7 +184,7 @@ pytest -q
 
 Tests make no network calls: `tests/fake_openf1.py` is a synthetic stand-in for the API. `tests/test_app_smoke.py` runs the whole app against it for race, qualifying and empty sessions, including moving the Race lap slider.
 
-## Structure
+### 🗂️ Structure
 
 ```
 main.py             entry point
@@ -147,6 +202,9 @@ assets/style.css    brand details and motion
 tests/              one test file per module, plus the app smoke test
 ```
 
-## License
+### 📄 Licence
 
 [MIT](LICENSE). Data credit: [OpenF1](https://openf1.org).
+
+<sub>The F1 car and tyre figures are generic and unbranded (no team, sponsor or logo), built as interactive isometric drawings with the <a href="https://github.com/wheresryan22/anatomy">Anatomy</a> skill for my portfolio. Proportions are approximate and tyre numbers are illustrative.</sub>
+
